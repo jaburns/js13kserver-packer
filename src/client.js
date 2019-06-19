@@ -1,18 +1,31 @@
 (()=>{
 
-    let socket = io({ upgrade: false, transports: ["websocket"] });
+    let socket = io()
+      , shader = __inlineShader('flatWhite.glsl')
+      , gl = C.getContext('webgl')
+      , state
 
-    console.log('starting');
-
-    const shader = __inlineShader('example.glsl');
+    window.onresize = () => {
+        C.width = window.innerWidth;
+        C.height = window.innerHeight;
+        gl.viewport(0, 0, C.width, C.height);
+    };
 
     socket.on("connect", () => {
-        console.log('connected!');
+        window.onclick = () => {
+            socket.emit('i', $sharedMessage);
+        };
 
-        $globalB();
+        socket.on('s', s => state = s);
     });
 
-    console.log(__inlineShader('example.glsl'));
-    console.log(shader);
+    let update = () => {
+        gl.clearColor(0, 1, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        requestAnimationFrame(update);
+    };
+
+    update();
 
 })();

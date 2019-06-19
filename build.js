@@ -7,21 +7,33 @@ const clientCode = fs.readFileSync('./src/client.js', 'utf8');
 const sharedCode = fs.readFileSync('./src/shared.js', 'utf8');
 const serverCode = fs.readFileSync('./src/server.js', 'utf8');
 
-const GLOBALS = _.uniq(sharedCode.replace(/[ \t\n\r]+/g, ' ').split(' '))
-    .filter(x => x.startsWith('$') && /^\$[_0-9a-zA-Z]+/.test(x));
+const cashGlobals = _.uniq(sharedCode.match(/\$[a-zA-Z0-9_]+/g));
+const glGlobals = _.uniq(clientCode.match(/gl\.[a-zA-Z0-9_]+/g));
 
 const MINIFY = process.argv[2] === '--small';
 
+const genSmallGlobals = (a, b) => _.range(a, a+b).map(x => '$' + x);
+
 const getShaderStringFromPath = path => {
-    if (MINIFY) {
-        shell.exec(`glsl-minifier -i "${path}" -o ./tmp.min.glsl`);
-        const shaderMin = fs.readFileSync('./tmp.min.glsl', 'utf8');
-        shell.rm('-rf', './tmp.min.glsl');
-        return "'" + shaderMin + "'";
-    } else {
-        const shader = fs.readFileSync(path, 'utf8');
-        return '`' + shader + '`';
+    const shader = fs.readFileSync(path, 'utf8');
+    const vertex = '#define VERTEX\n' + shader;
+    const fragment = 'precision highp float;\n#define FRAGMENT\n' + shader;
+
+    if (!MINIFY) {
+        return `[\`${vertex}\`,\`${fragment}\`]`;
     }
+
+    fs.writeFileSync('./tmp.min.glsl', vertex);
+    shell.exec(`glsl-minifier -sT vertex -i ./tmp.min.glsl -o ./tmp.min.glsl`);
+    const vertexMin = fs.readFileSync('./tmp.min.glsl', 'utf8');
+
+    fs.writeFileSync('./tmp.min.glsl', fragment);
+    shell.exec(`glsl-minifier -sT fragment -i ./tmp.min.glsl -o ./tmp.min.glsl`);
+    const fragmentMin = fs.readFileSync('./tmp.min.glsl', 'utf8');
+
+    shell.rm('-rf', './tmp.min.glsl');
+
+    return `['${vertexMin}','${fragmentMin}']`;
 };
 
 const handleInlineShaderCalls = code => {
@@ -34,14 +46,24 @@ const handleInlineShaderCalls = code => {
     return code;
 };
 
+const handleGLCalls = code => {
+    const lookup = _.zip(glGlobals, genSmallGlobals(0, glGlobals.length));
+
+    lookup.forEach(([from, to]) => {
+        code = code.replace(new RegExp(from.replace('.', '\\.'), 'g'), 'gl['+to+']');
+    });
+
+    const lookupCode = lookup.map(([from, to]) => `${to}='${from.substr(3)}'`).join(',');
+
+    return 'let '+lookupCode+';'+code;
+};
+
 const processFile = code => {
     code = handleInlineShaderCalls(code);
 
     if (MINIFY) code = uglify(code).code;
-
-    const genSmallGlobals = n => _.range(0, n).map(x => '$' + x);
     
-    _.zip(GLOBALS, genSmallGlobals(GLOBALS.length)).forEach(([from, to]) => {
+    _.zip(cashGlobals, genSmallGlobals(glGlobals.length, cashGlobals.length)).forEach(([from, to]) => {
         code = code.replace(new RegExp('\\'+from, 'g'), to);
     });
 
@@ -53,6 +75,6 @@ shell.mkdir('-p', './js13kserver/public');
 shell.cp('-r', './src/*', './js13kserver/public/');
 shell.rm('-rf', './js13kserver/public/shaders');
 
-fs.writeFileSync('./js13kserver/public/client.js', processFile(clientCode));
+fs.writeFileSync('./js13kserver/public/client.js', processFile(handleGLCalls(clientCode)));
 fs.writeFileSync('./js13kserver/public/shared.js', processFile(sharedCode));
 fs.writeFileSync('./js13kserver/public/server.js', processFile(serverCode));

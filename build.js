@@ -3,14 +3,27 @@ const _ = require('lodash');
 const shell = require('shelljs');
 const uglify = require("uglify-es").minify;
 
-const clientCode = fs.readFileSync('./src/client.js', 'utf8');
-const sharedCode = fs.readFileSync('./src/shared.js', 'utf8');
-const serverCode = fs.readFileSync('./src/server.js', 'utf8');
+const MINIFY = process.argv[2] === '--small';
+
+const handleDebug = code => {
+    code = code.replace(/__DEBUG/g, MINIFY ? 'false' : 'true');
+
+    if (MINIFY)
+        code = code.split('\n')
+            .filter(x => x.indexOf('__GL_DEBUG') < 0)
+            .join('\n');
+
+    return code;
+};
+
+const clientCode = handleDebug(fs.readFileSync('./src/client.js', 'utf8'));
+const sharedCode = handleDebug(fs.readFileSync('./src/shared.js', 'utf8'));
+const serverCode = handleDebug(fs.readFileSync('./src/server.js', 'utf8'));
+
+const onlyDupes = arr => _.uniq(_.filter(arr, (v, i, a) => a.indexOf(v) !== i));
 
 const cashGlobals = _.uniq(sharedCode.match(/\$[a-zA-Z0-9_]+/g));
-const glGlobals = _.uniq(clientCode.match(/gl\.[a-zA-Z0-9_]+/g));
-
-const MINIFY = process.argv[2] === '--small';
+const glGlobals = onlyDupes(clientCode.match(/gl\.[a-zA-Z0-9_]+/g));
 
 const genSmallGlobals = (a, b) => _.range(a, a+b).map(x => '$' + x);
 
@@ -75,6 +88,6 @@ shell.mkdir('-p', './js13kserver/public');
 shell.cp('-r', './src/*', './js13kserver/public/');
 shell.rm('-rf', './js13kserver/public/shaders');
 
-fs.writeFileSync('./js13kserver/public/client.js', processFile(handleGLCalls(clientCode)));
+fs.writeFileSync('./js13kserver/public/client.js', processFile(MINIFY ? handleGLCalls(clientCode) : clientCode));
 fs.writeFileSync('./js13kserver/public/shared.js', processFile(sharedCode));
 fs.writeFileSync('./js13kserver/public/server.js', processFile(serverCode));

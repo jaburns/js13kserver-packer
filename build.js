@@ -5,6 +5,24 @@ const uglify = require("uglify-es").minify;
 
 const MINIFY = process.argv[2] === '--small';
 
+const handleInlineFileComments = code => {
+    const lines = code.split('\n');
+    const result = [];
+
+    lines.forEach(line => {
+        const label = '//__inlineFile';
+        const index = line.indexOf(label);
+        if (index >= 0) {
+            const filename = line.substr(index + label.length).trim();
+            result.push(fs.readFileSync('src/' + filename, 'utf8'));
+        } else {
+            result.push(line);
+        }
+    });
+
+    return result.join('\n');
+};
+
 const handleDebug = code => {
     code = code.replace(/__DEBUG/g, MINIFY ? 'false' : 'true');
 
@@ -16,9 +34,9 @@ const handleDebug = code => {
     return code;
 };
 
-const clientCode = handleDebug(fs.readFileSync('./src/client.js', 'utf8'));
-const sharedCode = handleDebug(fs.readFileSync('./src/shared.js', 'utf8'));
-const serverCode = handleDebug(fs.readFileSync('./src/server.js', 'utf8'));
+const clientCode = handleDebug(handleInlineFileComments(fs.readFileSync('./src/client.js', 'utf8')));
+const sharedCode = handleDebug(handleInlineFileComments(fs.readFileSync('./src/shared.js', 'utf8')));
+const serverCode = handleDebug(handleInlineFileComments(fs.readFileSync('./src/server.js', 'utf8')));
 
 const onlyDupes = arr => _.uniq(_.filter(arr, (v, i, a) => a.indexOf(v) !== i));
 
@@ -86,7 +104,10 @@ shell.rm('-rf', './js13kserver/public');
 shell.mkdir('-p', './js13kserver/public');
 shell.cp('-r', './src/*', './js13kserver/public/');
 shell.rm('-rf', './js13kserver/public/shaders');
+shell.rm('-rf', './js13kserver/public/*.lib.js');
 
 fs.writeFileSync('./js13kserver/public/client.js', processFile(MINIFY ? handleGLCalls(clientCode) : clientCode));
 fs.writeFileSync('./js13kserver/public/shared.js', processFile(sharedCode));
 fs.writeFileSync('./js13kserver/public/server.js', processFile(serverCode));
+
+shell.cp('./js13kserver-index.js', 'js13kserver/index.js');

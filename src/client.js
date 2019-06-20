@@ -6,48 +6,13 @@ if (__DEBUG) {
 }
 
 (()=>{
-    //__TOP
+//__TOP
 
-let mat4_create = () => {
-  let out = new Float32Array(16);
-  out[0] = 1;
-  out[5] = 1;
-  out[10] = 1;
-  out[15] = 1;
-  return out;
-}
-
-let mat4_perspective = (out, fovy, aspect, near, far) => {
-  let f = 1.0 / Math.tan(fovy / 2), nf;
-  out[0] = f / aspect;
-  out[1] = 0;
-  out[2] = 0;
-  out[3] = 0;
-  out[4] = 0;
-  out[5] = f;
-  out[6] = 0;
-  out[7] = 0;
-  out[8] = 0;
-  out[9] = 0;
-  out[11] = -1;
-  out[12] = 0;
-  out[13] = 0;
-  out[15] = 0;
-  if (far != null && far !== Infinity) {
-    nf = 1 / (near - far);
-    out[10] = (far + near) * nf;
-    out[14] = (2 * far * near) * nf;
-  } else {
-    out[10] = -1;
-    out[14] = -2 * near;
-  }
-  return out;
-}
-
-
+    //__inlineFile soundbox-player.lib.js
+    //__inlineFile math.lib.js
 
     let socket = io()
-      , shader = __inlineShader('flatWhite.glsl')
+      , shader = __inlineShader('ship.glsl')
       , gl = C.getContext('webgl')
       , state
       , shaderProg
@@ -124,15 +89,12 @@ let mat4_perspective = (out, fovy, aspect, near, far) => {
         let cameraMatrix = mat4_create();
         mat4_perspective(cameraMatrix, Math.PI/2, aspectRatio, .01, 100);
 
-        console.log(aspectRatio);
-
     //  Transform.toMatrix(ship, m4x);
     //  Camera.getViewMatrix(camera, m4y);
     //  mat4.mul(m4x, m4y, m4x);
     //  Camera.getProjectionMatrix(camera, m4y);
     //  mat4.mul(m4x, m4y, m4x);
 
-        //let m4x = new Float32Array([-0.9898824095726013, -0.14189064502716064, 0, 0, 0.14189064502716064, -0.9898824095726013, 0, 0, 0, 0, -1.0002000331878662, -1, -0.7855497002601624, -1.9689877033233643, 4.9809980392456055, 5]);
         gl.uniformMatrix4fv(gl.getUniformLocation(shaderProg, 'u_mvp'), false, cameraMatrix);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
@@ -149,5 +111,8 @@ let mat4_perspective = (out, fovy, aspect, near, far) => {
     shaderProg = compileShader();
 
     update();
+
+    var exampleSong={songData:[{i:[2,192,128,0,2,192,128,3,0,0,32,222,60,0,0,2,188,3,1,3,55,241,60,67,53,5,75,5],p:[1,2,3,4,3,4],c:[{n:[123],f:[]},{n:[118],f:[]},{n:[123,111],f:[]},{n:[118,106],f:[]}]},{i:[3,100,128,0,3,201,128,7,0,0,17,43,109,0,0,3,113,4,1,1,23,184,2,29,147,6,67,3],p:[,,1,2,1,2],c:[{n:[123,,,,,,,,123,,,,,,,,123,,,,,,,,123,,,,,,,,126,,,,,,,,126,,,,,,,,126,,,,,,,,126,,,,,,,,130,,,,,,,,130,,,,,,,,130,,,,,,,,130],f:[]},{n:[122,,,,,,,,122,,,,,,,,122,,,,,,,,122,,,,,,,,125,,,,,,,,125,,,,,,,,125,,,,,,,,125,,,,,,,,130,,,,,,,,130,,,,,,,,130,,,,,,,,130],f:[]}]},{i:[0,192,99,1,0,80,99,0,0,3,4,0,66,0,0,0,19,4,1,2,86,241,18,195,37,4,0,0],p:[,,1,1,1,1,1],c:[{n:[147,,,,147,,,,147,,,,147,,,,147,,,,147,,,,147,,,,147],f:[]}]},{i:[2,146,140,0,2,224,128,3,0,0,84,0,95,0,0,3,179,5,1,2,62,135,11,15,150,3,157,6],p:[,,,,1,2],c:[{n:[147,,145,,147,,,,,,,,,,,,135],f:[11,,,,,,,,,,,,,,,,11,,,,,,,,,,,,,,,,27,,,,,,,,,,,,,,,,84]},{n:[142,,140,,142,,,,,,,,,,,,130],f:[11,,,,,,,,,,,,,,,,11,,,,,,,,,,,,,,,,27,,,,,,,,,,,,,,,,84]}]}],rowLen:6615,patternLen:32,endPattern:6,numChannels:4};
+    sbPlay(exampleSong);
 
 })();

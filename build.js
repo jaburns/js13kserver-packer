@@ -67,8 +67,7 @@ const handleGLCalls = code => {
     });
 
     const lookupCode = lookup.map(([from, to]) => `${to}='${from.substr(3)}'`).join(',');
-
-    return 'let '+lookupCode+';'+code;
+    return code.replace('//__TOP', 'let '+lookupCode+';');
 };
 
 const processFile = code => {

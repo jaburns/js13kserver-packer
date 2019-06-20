@@ -6,7 +6,7 @@ uniform mat4 u_mvp;
 
     void main()
     {
-        gl_Position = u_mvp * vec4(i_position, -1, 1);
+        gl_Position = u_mvp * vec4(i_position, 0, 1);
     }
 
 #endif

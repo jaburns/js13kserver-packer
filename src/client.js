@@ -19,6 +19,7 @@ if (__DEBUG) {
       , vertexBuffer
       , indexBuffer
       , aspectRatio
+      , transform = Transform_create()
       , resizeFunc = () => {
             C.width = innerWidth;
             C.height = innerHeight;
@@ -27,12 +28,12 @@ if (__DEBUG) {
         };
 
     onresize = resizeFunc;
+
     resizeFunc();
 
     socket.on("connect", () => {
-        onclick = () => {
-            socket.emit('i', $sharedMessage);
-        };
+        onkeydown = k => socket.emit('kd', k.keyCode);
+        onkeyup = k => socket.emit('ku', k.keyCode);
 
         socket.on('s', s => state = s);
     });
@@ -69,7 +70,7 @@ if (__DEBUG) {
         return prog;
     };
 
-    let verts = [0.2492,0,0.1102,-0.0237,0.1333,-0.081,0.04749999,-0.0506,0.0031,-0.0564,-0.0337,-0.1155,-0.003200002,-0.1747,-0.09190001,-0.149,-0.1102,-0.084,-0.158,-0.0931,-0.158,-0.0332,-0.1347,0,-0.158,0.0332,-0.158,0.0931,-0.1102,0.084,-0.09190001,0.149,-0.003200002,0.1747,-0.0337,0.1155,0.0031,0.0564,0.04749999,0.0506,0.1333,0.081,0.1102,0.0237];
+    let verts = [25, 0, 11, -2, 13, -8, 5, -5, 0, -6, -3, -12, -0, -17, -9, -15, -11, -8, -16, -9, -16, -3, -13, 0, -16, 3, -16, 9, -11, 8, -9, 15, -0, 17, -3, 12, 0, 6, 5, 5, 13, 8, 11, 2].map(x=>x/100);
     let tris = [1,0,11,3,1,11,4,3,11,5,4,11,8,5,11,9,8,11,10,9,11,2,1,3,6,5,7,7,5,8,21,11,0,19,11,21,18,11,19,17,11,18,14,11,17,13,11,14,12,11,13,20,19,21,15,14,17,16,15,17];
 
     vertexBuffer = gl.createBuffer();
@@ -86,24 +87,36 @@ if (__DEBUG) {
 
         gl.useProgram(shaderProg);
 
-        let cameraMatrix = mat4_create();
-        mat4_perspective(cameraMatrix, Math.PI/2, aspectRatio, .01, 100);
+        if (state) state.forEach((player, i) => {
 
-    //  Transform.toMatrix(ship, m4x);
-    //  Camera.getViewMatrix(camera, m4y);
-    //  mat4.mul(m4x, m4y, m4x);
-    //  Camera.getProjectionMatrix(camera, m4y);
-    //  mat4.mul(m4x, m4y, m4x);
+            let t = Date.now() / 1000 + i*1.7;
+            quat_setAxisAngle(transform.r, [0,0,1], t);
+            transform.p[0] = 4*player.x - 2;
+            transform.p[1] = 4*player.y - 2;
+            transform.p[2] = -3 + Math.sin(1.5*t);
 
-        gl.uniformMatrix4fv(gl.getUniformLocation(shaderProg, 'u_mvp'), false, cameraMatrix);
+            let projectionMatrix = mat4_create();
+            mat4_perspective(projectionMatrix, Math.PI/2, aspectRatio, .01, 100);
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        let posLoc = gl.getAttribLocation(shaderProg, "i_position");
-        gl.enableVertexAttribArray(posLoc);
-        gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+            let viewMatrix = mat4_create();
+            // something something camera
 
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-        gl.drawElements(gl.TRIANGLES, tris.length, gl.UNSIGNED_SHORT, 0);
+            let modelMatrix = mat4_create();
+            Transform_toMatrix(transform, modelMatrix);
+
+            let mvp = mat4_multiply(mat4_create(), projectionMatrix, mat4_multiply(mat4_create(), viewMatrix, modelMatrix));
+
+            gl.uniformMatrix4fv(gl.getUniformLocation(shaderProg, 'u_mvp'), false, mvp);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+            let posLoc = gl.getAttribLocation(shaderProg, "i_position");
+            gl.enableVertexAttribArray(posLoc);
+            gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+            gl.drawElements(gl.TRIANGLES, tris.length, gl.UNSIGNED_SHORT, 0);
+
+        });
 
         requestAnimationFrame(update);
     };

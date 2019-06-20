@@ -24,6 +24,8 @@
 */
 // === Modified by jaburns ===
 // Original: https://github.com/mbitsnbites/soundbox/blob/master/player-small.js
+// Editor: http://sb.bitsnbites.eu/
+//
 
 let sbPlay =(song) => {
 
@@ -337,7 +339,7 @@ let sbPlay =(song) => {
         audio.src = URL.createObjectURL(new Blob([wave], {type: "audio/wav"}));
 
         var playFunc = () => {
-            try { audio.play(); } catch(e) { setTimeout(playFunc, 0); }
+        //  try { audio.play(); } catch(e) { setTimeout(playFunc, 0); }
         };
         playFunc();
     };

@@ -14,6 +14,8 @@ const storage = require('./lib/storage');
 
 const shell = require('shelljs');
 
+const ADVZIP_BINARY = process.platform === 'win32' ? 'advzip.exe' : 'advzip.osx';
+
 let packageSize = 0;
 let smallPackageSize;
 
@@ -45,7 +47,7 @@ function createZip() {
     output.on('close', () => {
         packageSize = archive.pointer();
         shell.cd("..");
-        shell.exec("advzip\\advzip.exe -4 -z js13kserver\\dist.zip", {silent: true});
+        shell.exec("advzip/"+ADVZIP_BINARY+" -4 -z js13kserver/dist.zip", {silent: true});
         shell.cd("js13kserver");
         smallPackageSize = fs.statSync('dist.zip').size;
         console.log(`Raw zip: ${packageSize} of 13312 / ${(packageSize / 13312 * 100).toFixed(2)}%`);

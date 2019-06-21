@@ -11,7 +11,13 @@ if (__DEBUG) {
     //__inlineFile soundbox-player.lib.js
     //__inlineFile math.lib.js
 
-    let base64_ushortUnpack2 = s => new Uint16Array(atob(s).split('').map(x=>x.charCodeAt(0)).reduce((a,b,i)=>(i%2?a[a.length-1]+=b:a.push(b<<8),a),[]))
+    let base64_ushortUnpack = s => atob(s).split('').map(x=>x.charCodeAt(0)).reduce((a,b,i)=>(i%2?a[a.length-1]+=b:a.push(b<<8),a),[]);
+    let base64_floatUnpack = s => {
+        let scale = s.shift();
+        base64_ushortUnpack(s).map(i => scale * (i - 32768) / 32767)
+    };
+
+    base64_ushortUnpack();
 
     let socket = io()
       , shader = __inlineShader('ship.glsl')
@@ -72,15 +78,13 @@ if (__DEBUG) {
         return prog;
     };
 
-    let verts2 = base64_ushortUnpack2('NAAAAC8KpR4wKK0eKmaqZgAAq66nrq+uAACxcK3CsMyvCq0esR6twrEep66wKAAAsR4nrrEeLcKvCi0ercIwzAAAMXCnri+uAAArripmKmYwKC0eLwolHg==');
-
+    //let verts = base64_ushortUnpack('NAAAAC8KpR4wKK0eKmaqZgAAq66nrq+uAACxcK3CsMyvCq0esR6twrEep66wKAAAsR4nrrEeLcKvCi0ercIwzAAAMXCnri+uAAArripmKmYwKC0eLwolHg==');
     let verts = [25,0,11,-2,13,-8,5,-5,0,-6,-3,-12,-0,-17,-9,-15,-11,-8,-16,-9,-16,-3,-13,0,-16,3,-16,9,-11,8,-9,15,-0,17,-3,12,0,6,5,5,13,8,11,2].map(x=>x/100);
     let tris = [1,0,11,3,1,11,4,3,11,5,4,11,8,5,11,9,8,11,10,9,11,2,1,3,6,5,7,7,5,8,21,11,0,19,11,21,18,11,19,17,11,18,14,11,17,13,11,14,12,11,13,20,19,21,15,14,17,16,15,17];
 
     vertexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
-    //gl.bufferData(gl.ARRAY_BUFFER, verts2, gl.STATIC_DRAW);
 
     indexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);

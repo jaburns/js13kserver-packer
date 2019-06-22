@@ -2,8 +2,7 @@
   "name": "js13k-ts-server",
   "private": true,
   "scripts": {
-    "start": "node build",
-    "build": "node build --small",
+    "start": "node build --small",
     "bash": "bash"
   },
   "devDependencies": {

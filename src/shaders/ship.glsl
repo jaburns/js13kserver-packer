@@ -1,12 +1,15 @@
 uniform mat4 u_mvp;
 
+varying vec3 v_color;
+
 #ifdef VERTEX
 
-    attribute vec2 i_position;
+    attribute vec3 i_position;
 
     void main()
     {
-        gl_Position = u_mvp * vec4(i_position, 0, 1);
+        gl_Position = u_mvp * vec4(i_position, 1);
+        v_color = i_position;
     }
 
 #endif
@@ -14,7 +17,7 @@ uniform mat4 u_mvp;
 
     void main()
     {
-        gl_FragColor = vec4(0.4, 0.4, 0.4, 1);
+        gl_FragColor = vec4(v_color, 1);
     }
 
 #endif

@@ -1,3 +1,8 @@
+#===== Project-specific ======================================
+Assets/*.m8
+Assets/*.m8.meta
+
+#===== Unity generic =========================================
 # This .gitignore file should be placed at the root of your Unity project directory
 #
 # Get latest from https://github.com/github/gitignore/blob/master/Unity.gitignore
@@ -9,9 +14,6 @@
 /[Bb]uilds/
 /[Ll]ogs/
 /[Mm]emoryCaptures/
-
-# Never ignore Asset meta data
-!/[Aa]ssets/**/*.meta
 
 # Uncomment this line if you wish to ignore the asset store tools plugin
 # /[Aa]ssets/AssetStoreTools*

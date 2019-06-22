@@ -45,8 +45,23 @@ const glGlobals = onlyDupes(clientCode.match(/gl\.[a-zA-Z0-9_]+/g));
 
 const genSmallGlobals = (a, b) => _.range(a, a+b).map(x => '$' + x);
 
+const minifyVaryingsInShader = shader => {
+    if (!MINIFY) return shader;
+
+    // TODO we can also minify uniforms and attributes, replacing their references in the final JS source
+
+    const varyings = _.uniq(shader.match(/v_[a-zA-Z0-9]+/g));
+    const replacements = _.zip(varyings, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').slice(0, varyings.length));
+
+    replacements.forEach(([from, to]) => {
+        shader = shader.replace(new RegExp(from, 'g'), to);
+    });
+
+    return shader;
+};
+
 const getShaderStringFromPath = path => {
-    const shader = fs.readFileSync(path, 'utf8');
+    const shader = minifyVaryingsInShader(fs.readFileSync(path, 'utf8'));
     const vertex = '#define VERTEX\n' + shader;
     const fragment = 'precision highp float;\n#define FRAGMENT\n' + shader;
 
@@ -64,7 +79,11 @@ const getShaderStringFromPath = path => {
 
     shell.rm('-rf', './tmp.min.glsl');
 
-    return `['${vertexMin}','${fragmentMin}']`;
+    const fragmentMinNoPrec = fragmentMin
+        .replace(/precision highp float;/g, '')
+        .replace(/mediump /g, '');
+
+    return `['${vertexMin}','${fragmentMinNoPrec}']`;
 };
 
 const handleInlineShaderCalls = code => {
@@ -91,7 +110,25 @@ const handleGLCalls = code => {
 const processFile = code => {
     code = handleInlineShaderCalls(code);
 
-    if (MINIFY) code = uglify(code).code;
+    if (MINIFY) code = uglify(code, {
+        compress: {
+            ecma: 6,
+            keep_fargs: false,
+            passes: 2,
+            pure_funcs: [ /*TODO mark pure funcs and find them*/ ],
+            pure_getters: true,
+
+            unsafe: true,
+            unsafe_arrows : true,
+            unsafe_comps: true, 
+            unsafe_Function: true,
+            unsafe_math: true,
+            unsafe_methods: true,
+            unsafe_proto: true,
+            unsafe_regexp: true,
+            unsafe_undefined:true,
+        }
+    }).code;
     
     _.zip(cashGlobals, genSmallGlobals(glGlobals.length, cashGlobals.length)).forEach(([from, to]) => {
         code = code.replace(new RegExp('\\'+from, 'g'), to);
@@ -103,6 +140,7 @@ const processFile = code => {
 shell.rm('-rf', './js13kserver/public');
 shell.mkdir('-p', './js13kserver/public');
 shell.cp('-r', './src/*', './js13kserver/public/');
+shell.cp('-r', './public/*', './js13kserver/public/');
 shell.rm('-rf', './js13kserver/public/shaders');
 shell.rm('-rf', './js13kserver/public/*.lib.js');
 

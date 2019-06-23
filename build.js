@@ -3,6 +3,10 @@ const _ = require('lodash');
 const shell = require('shelljs');
 const uglify = require("uglify-es").minify;
 
+// This pulls out common GL function names and constants in to strings.
+// It results in smaller JS, but can actually make the zip file bigger.
+const ENABLE_GL_CALL_OPTIMIZATION = false;
+
 const MINIFY = process.argv[2] === '--small';
 
 const handleInlineFileComments = code => {
@@ -43,7 +47,7 @@ const onlyDupes = arr => _.uniq(_.filter(arr, (v, i, a) => a.indexOf(v) !== i));
 const cashGlobals = _.uniq(sharedCode.match(/\$[a-zA-Z0-9_]+/g));
 const glGlobals = onlyDupes(clientCode.match(/gl\.[a-zA-Z0-9_]+/g));
 
-const genSmallGlobals = (a, b) => _.range(a, a+b).map(x => '$' + x);
+const genSmallGlobals = a => _.range(0, a).map(x => '$' + x);
 
 const minifyVaryingsInShader = shader => {
     if (!MINIFY) return shader;
@@ -97,10 +101,12 @@ const handleInlineShaderCalls = code => {
 };
 
 const handleGLCalls = code => {
-    const lookup = _.zip(glGlobals, genSmallGlobals(0, glGlobals.length));
+    if (! ENABLE_GL_CALL_OPTIMIZATION) return code;
 
-    lookup.forEach(([from, to]) => {
+    const lookup = glGlobals.map((from, i) => {
+        const to = 'G'+i;
         code = code.replace(new RegExp(from.replace('.', '\\.'), 'g'), 'gl['+to+']');
+        return [from, to];
     });
 
     const lookupCode = lookup.map(([from, to]) => `${to}='${from.substr(3)}'`).join(',');
@@ -110,27 +116,37 @@ const handleGLCalls = code => {
 const processFile = code => {
     code = handleInlineShaderCalls(code);
 
-    if (MINIFY) code = uglify(code, {
-        compress: {
-            ecma: 6,
-            keep_fargs: false,
-            passes: 2,
-            pure_funcs: [ /*TODO mark pure funcs and find them*/ ],
-            pure_getters: true,
+    if (MINIFY) {
+        const uglifyResult = uglify(code, {
+            compress: {
+                ecma: 6,
+                keep_fargs: false,
+                passes: 2,
+                pure_funcs: [ /*TODO mark pure funcs and find them*/ ],
+                pure_getters: true,
 
-            unsafe: true,
-            unsafe_arrows : true,
-            unsafe_comps: true, 
-            unsafe_Function: true,
-            unsafe_math: true,
-            unsafe_methods: true,
-            unsafe_proto: true,
-            unsafe_regexp: true,
-            unsafe_undefined:true,
+                unsafe: true,
+                unsafe_arrows : true,
+                unsafe_comps: true, 
+                unsafe_Function: true,
+                unsafe_math: true,
+                unsafe_methods: true,
+                unsafe_proto: true,
+                unsafe_regexp: true,
+                unsafe_undefined:true,
+            }
+        });
+
+        if (uglifyResult.code) {
+            code = uglifyResult.code;
+        } else {
+            console.log(code);
+            console.log(uglifyResult);
+            process.exit(1);
         }
-    }).code;
+    }
     
-    _.zip(cashGlobals, genSmallGlobals(glGlobals.length, cashGlobals.length)).forEach(([from, to]) => {
+    _.zip(cashGlobals, genSmallGlobals(cashGlobals.length)).forEach(([from, to]) => {
         code = code.replace(new RegExp('\\'+from, 'g'), to);
     });
 

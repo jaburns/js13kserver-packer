@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "start": "node build --small",
+    "fast": "node build",
     "bash": "bash"
   },
   "devDependencies": {

@@ -1,2 +1,2 @@
 
-const $sharedMessage = 'Shared message!';
+const $TICK_MILLIS = 33;

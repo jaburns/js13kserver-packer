@@ -6,14 +6,14 @@ module.exports=(()=>{
 
     setInterval(() => {
         players.forEach(p => {
-            if (p.k.indexOf(LEFT)  >= 0) p.x -= 0.01;
-            if (p.k.indexOf(UP)    >= 0) p.y += 0.01;
-            if (p.k.indexOf(RIGHT) >= 0) p.x += 0.01;
-            if (p.k.indexOf(DOWN)  >= 0) p.y -= 0.01;
+            if (p.k.indexOf(LEFT)  >= 0) p.x -= 0.05;
+            if (p.k.indexOf(UP)    >= 0) p.y += 0.05;
+            if (p.k.indexOf(RIGHT) >= 0) p.x += 0.05;
+            if (p.k.indexOf(DOWN)  >= 0) p.y -= 0.05;
 
             p.s.emit('s', players.map(p => ({x:p.x, y:p.y})));
         });
-    },100);
+    }, $TICK_MILLIS);
 
     return socket => {
         let self = {
@@ -25,11 +25,11 @@ module.exports=(()=>{
 
         players.push(self);
 
-        socket.on('kd', keyCode => {
+        socket.on('d', keyCode => {
             if (self.k.indexOf(keyCode) < 0) self.k.push(keyCode);
         });
 
-        socket.on('ku', keyCode => {
+        socket.on('u', keyCode => {
             let index = self.k.indexOf(keyCode);
             if (index >= 0) self.k.splice(index, 1);
         });

@@ -27,7 +27,7 @@
 // Editor: http://sb.bitsnbites.eu/
 //
 
-let sbPlay =(song) => {
+let sbPlay = (song, cb) => {
 
     //--------------------------------------------------------------------------
     // Initialization
@@ -336,12 +336,12 @@ let sbPlay =(song) => {
 
         var wave = createWave();
         var audio = document.createElement("audio");
+        audio.loop = !cb;
+        audio.onloadeddata = () => {
+            if (cb) cb({play() {audio.pause(); audio.currentTime = 0; audio.play()}});
+            else audio.play();
+        }
         audio.src = URL.createObjectURL(new Blob([wave], {type: "audio/wav"}));
-
-        var playFunc = () => {
-        //  try { audio.play(); } catch(e) { setTimeout(playFunc, 0); }
-        };
-        playFunc();
     };
 
     loadLoop();

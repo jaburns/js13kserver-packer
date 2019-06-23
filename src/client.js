@@ -13,13 +13,17 @@ if (__DEBUG) {
     //__inlineFile soundbox-player.lib.js
     //__inlineFile math.lib.js
     //__inlineFile model.lib.js
+    //__inlineFile state.lib.js
 
     let socket = io()
       , shader = __inlineShader('ship.glsl')
+      , lastReceiveState
+      , lastState
       , state
       , shaderProg
       , buffers
       , aspectRatio
+      , soundyBoi
       , transform = Transform_create()
       , resizeFunc = () => {
             C.width = innerWidth;
@@ -33,10 +37,14 @@ if (__DEBUG) {
     resizeFunc();
 
     socket.on("connect", () => {
-        onkeydown = k => socket.emit('kd', k.keyCode);
-        onkeyup = k => socket.emit('ku', k.keyCode);
+        onkeydown = k => socket.emit('d', k.keyCode);
+        onkeyup = k => socket.emit('u', k.keyCode);
 
-        socket.on('s', s => state = s);
+        socket.on('s', s => {
+            lastState = state;
+            state = s;
+            lastReceiveState = Date.now();
+        });
     });
 
     let compileShader = () => {
@@ -74,18 +82,16 @@ if (__DEBUG) {
     gl.clearColor(0, 0, 0, 1);
     gl.enable(gl.DEPTH_TEST);
 
-    let update = () => {
+    let render = state => {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
         gl.useProgram(shaderProg);
 
-        if (state && buffers) state.forEach((player, i) => {
-
+        state.forEach((player, i) => {
             let t = Date.now() / 1000 + i*1.7;
-            quat_setAxisAngle(transform.r, [0,1,1], t);
+            quat_setAxisAngle(transform.r, [.16,.81,.57], t);
             transform.p[0] = 4*player.x - 2;
             transform.p[1] = 4*player.y - 2;
-            transform.p[2] = -3 + Math.sin(1.5*t);
+            transform.p[2] = -3;
 
             let projectionMatrix = mat4_create();
             mat4_perspective(projectionMatrix, Math.PI/2, aspectRatio, .01, 100);
@@ -101,7 +107,7 @@ if (__DEBUG) {
             gl.uniformMatrix4fv(gl.getUniformLocation(shaderProg, 'u_mvp'), false, mvp);
 
             gl.bindBuffer(gl.ARRAY_BUFFER, buffers.v);
-            let posLoc = gl.getAttribLocation(shaderProg, "i_position");
+            let posLoc = gl.getAttribLocation(shaderProg, 'i_position');
             gl.enableVertexAttribArray(posLoc);
             gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 0, 0);
 
@@ -109,7 +115,12 @@ if (__DEBUG) {
             gl.drawElements(gl.TRIANGLES, buffers.t, gl.UNSIGNED_SHORT, 0);
 
         });
+    };
 
+
+    let update = () => {
+        if (lastState && state && buffers)
+            render(state_lerp(lastState, state, (Date.now() - lastReceiveState) / $TICK_MILLIS));
         requestAnimationFrame(update);
     };
 
@@ -117,9 +128,14 @@ if (__DEBUG) {
 
     update();
 
-    model_import('cylinder.m8').then(x => buffers = x);
+    model_import('cube.8').then(x => buffers = x);
 
     var exampleSong={songData:[{i:[2,192,128,0,2,192,128,3,0,0,32,222,60,0,0,2,188,3,1,3,55,241,60,67,53,5,75,5],p:[1,2,3,4,3,4],c:[{n:[123],f:[]},{n:[118],f:[]},{n:[123,111],f:[]},{n:[118,106],f:[]}]},{i:[3,100,128,0,3,201,128,7,0,0,17,43,109,0,0,3,113,4,1,1,23,184,2,29,147,6,67,3],p:[,,1,2,1,2],c:[{n:[123,,,,,,,,123,,,,,,,,123,,,,,,,,123,,,,,,,,126,,,,,,,,126,,,,,,,,126,,,,,,,,126,,,,,,,,130,,,,,,,,130,,,,,,,,130,,,,,,,,130],f:[]},{n:[122,,,,,,,,122,,,,,,,,122,,,,,,,,122,,,,,,,,125,,,,,,,,125,,,,,,,,125,,,,,,,,125,,,,,,,,130,,,,,,,,130,,,,,,,,130,,,,,,,,130],f:[]}]},{i:[0,192,99,1,0,80,99,0,0,3,4,0,66,0,0,0,19,4,1,2,86,241,18,195,37,4,0,0],p:[,,1,1,1,1,1],c:[{n:[147,,,,147,,,,147,,,,147,,,,147,,,,147,,,,147,,,,147],f:[]}]},{i:[2,146,140,0,2,224,128,3,0,0,84,0,95,0,0,3,179,5,1,2,62,135,11,15,150,3,157,6],p:[,,,,1,2],c:[{n:[147,,145,,147,,,,,,,,,,,,135],f:[11,,,,,,,,,,,,,,,,11,,,,,,,,,,,,,,,,27,,,,,,,,,,,,,,,,84]},{n:[142,,140,,142,,,,,,,,,,,,130],f:[11,,,,,,,,,,,,,,,,11,,,,,,,,,,,,,,,,27,,,,,,,,,,,,,,,,84]}]}],rowLen:6615,patternLen:32,endPattern:6,numChannels:4};
+    let exampleSFX={songData:[{i:[0,255,116,1,0,255,120,0,1,127,4,6,35,0,0,0,0,0,0,2,14,0,10,32,0,0,0,0],p:[1],c:[{n:[140],f:[]}]}],rowLen:5513,patternLen:32,endPattern:0,numChannels:1};
+
     sbPlay(exampleSong);
+    sbPlay(exampleSFX, x => soundyBoi = x);
+
+    onclick = () => { soundyBoi.play(); };
 
 })();

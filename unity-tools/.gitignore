@@ -1,6 +1,8 @@
 #===== Project-specific ======================================
-Assets/*.m8
-Assets/*.m8.meta
+Assets/**/*.8
+Assets/**/*.8.meta
+Assets/**/*.16
+Assets/**/*.16.meta
 
 #===== Unity generic =========================================
 # This .gitignore file should be placed at the root of your Unity project directory

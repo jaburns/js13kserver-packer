@@ -5,6 +5,8 @@ const uglify = require("uglify-es").minify;
 
 const MINIFY = process.argv[2] === '--small';
 
+const SHADER_MIN_TOOL = process.platform === 'win32' ? 'tools\\shader_minifier.exe' : 'mono tools/shader_minifier.exe';
+
 const buildShaderIncludeFile = () => {
     let fileContents = '';
 
@@ -13,7 +15,7 @@ const buildShaderIncludeFile = () => {
 
         if (MINIFY) {
             console.log('Minifying shader '+x+'...');
-            shell.exec("tools\\shader_minifier.exe --preserve-externals --format js "+x+" -o tmp.js", {silent: true});
+            shell.exec(SHADER_MIN_TOOL + " --preserve-externals --format js "+x+" -o tmp.js", {silent: true});
             fileContents += fs.readFileSync('tmp.js', 'utf8');
         } else {
             console.log('Inlining shader '+x+'...');
@@ -129,7 +131,7 @@ const processFile = (file, code) => {
 
                 unsafe: true,
                 unsafe_arrows : true,
-                unsafe_comps: true, 
+                unsafe_comps: true,
                 unsafe_Function: true,
                 unsafe_math: true,
                 unsafe_methods: true,
@@ -149,7 +151,7 @@ const processFile = (file, code) => {
     }
 
     const genSmallGlobals = a => _.range(0, a).map(x => '$' + x);
-    
+
     _.zip(cashGlobals, genSmallGlobals(cashGlobals.length)).forEach(([from, to]) => {
         code = code.replace(new RegExp('\\'+from, 'g'), to);
     });

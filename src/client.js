@@ -55,8 +55,8 @@ if (__DEBUG) {
         if (__DEBUG) {
             let vertLog = gl.getShaderInfoLog(vertShader); //__GL_DEBUG
             if (vertLog === null || vertLog.length > 0) {
-                document.body.innerHTML = errorHTML('vertex', name, vertLog);
-                throw new Error('Error compiling shader: ' + name);
+                document.body.innerHTML = errorHTML('vertex', vertLog);
+                throw new Error('Error compiling shader');
             }
         }
 
@@ -67,8 +67,8 @@ if (__DEBUG) {
         if (__DEBUG) {
             const fragLog = gl.getShaderInfoLog(fragShader); //__GL_DEBUG
             if (fragLog === null || fragLog.length > 0) {
-                document.body.innerHTML = errorHTML('fragment', name, fragLog);
-                throw new Error('Error compiling shader: ' + name);
+                document.body.innerHTML = errorHTML('fragment', fragLog);
+                throw new Error('Error compiling shader');
             }
         }
 
@@ -107,7 +107,7 @@ if (__DEBUG) {
             gl.uniformMatrix4fv(gl.getUniformLocation(shaderProg, 'u_mvp'), false, mvp);
 
             gl.bindBuffer(gl.ARRAY_BUFFER, buffers.v);
-            let posLoc = gl.getAttribLocation(shaderProg, 'i_position');
+            let posLoc = gl.getAttribLocation(shaderProg, 'a_position');
             gl.enableVertexAttribArray(posLoc);
             gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 0, 0);
 

@@ -4,9 +4,8 @@ const shell = require('shelljs');
 const uglify = require("uglify-es").minify;
 const constants = require('./src/constants.json');
 
-const MINIFY = process.argv[2] === '--small';
-
 const SHADER_MIN_TOOL = process.platform === 'win32' ? 'tools\\shader_minifier.exe' : 'mono tools/shader_minifier.exe';
+const MINIFY = process.argv[2] === '--small';
 
 const buildShaderIncludeFile = () => {
     let fileContents = '';
@@ -15,11 +14,9 @@ const buildShaderIncludeFile = () => {
         if (!(x.endsWith('.frag') || x.endsWith('.vert'))) return;
 
         if (MINIFY) {
-            console.log('Minifying shader '+x+'...');
             shell.exec(SHADER_MIN_TOOL + " --preserve-externals --format js "+x+" -o tmp.js", {silent: true});
             fileContents += fs.readFileSync('tmp.js', 'utf8');
         } else {
-            console.log('Inlining shader '+x+'...');
             fileContents += `var ${x.substr(x.indexOf('/')+1).replace('.', '_')} = \`${fs.readFileSync(x, 'utf8')}\`;\n\n`;
         }
     });
@@ -45,8 +42,6 @@ const handleInlineFileComments = (file, code) => {
     const lines = code.split('\n');
     const result = [];
 
-    console.log('Inlining include files in to '+file+'...');
-
     lines.forEach(line => {
         const label = '//__inlineFile';
         const index = line.indexOf(label);
@@ -61,22 +56,11 @@ const handleInlineFileComments = (file, code) => {
     return result.join('\n');
 };
 
-const allShaderCode = buildShaderIncludeFile();
-fs.writeFileSync('./src/shaders.gen.js', allShaderCode);
-
-const handleDebug = code =>
-    code.replace(/__DEBUG/g, MINIFY ? 'false' : 'true');
-
-const clientCode = handleDebug(handleInlineFileComments('client.js', fs.readFileSync('./src/client.js', 'utf8')));
-const sharedCode = handleDebug(handleInlineFileComments('shared.js', fs.readFileSync('./src/shared.js', 'utf8')));
-const serverCode = handleDebug(handleInlineFileComments('server.js', fs.readFileSync('./src/server.js', 'utf8')));
-
-const cashGlobals = _.uniq(sharedCode.match(/\$[a-zA-Z0-9_]+/g));
-
-// TODO this hash function collides on a few gl context functions, but apparently not
-// ones we are using yet. Should output a collision report so we can fiddle with the hash
-// if we end up needing a broken function name.
 const handleGLCalls = code => {
+    // TODO this hash function collides on a few gl context functions, but apparently not
+    // ones we are using yet. Should output a collision report so we can fiddle with the hash
+    // if we end up needing a broken function name.
+
     const genHashesSrc = `
         let Z = String.fromCharCode;
         for (let k in gl) {
@@ -108,73 +92,88 @@ const handleGLCalls = code => {
     return code;
 };
 
-const processFile = (file, code) => {
-    if (MINIFY) {
-        if (file === 'client.js') {
-            console.log('Mangling gl context function names in client.js...');
-            code = handleGLCalls(code);
+const processFile = (cashGlobals, shaderReplacements, file, code) => {
+    const shortGlobals = _.range(0, cashGlobals.length).map(x => '$' + x);
 
-            console.log('Replacing references to shader externals with minified names in client.js...');
-            findShaderInternalReplacements(allShaderCode).forEach(([from, to]) => {
-                code = code.replace(new RegExp(from, 'g'), to);
-            });
-        }
-
-        console.log('Minifying '+file+' with Uglify...');
-
-        const uglifyResult = uglify(code, {
-            compress: {
-                ecma: 6,
-                keep_fargs: false,
-                passes: 2,
-                pure_funcs: [ /*TODO maybe find pure funcs*/ ],
-                pure_getters: true,
-
-                unsafe: true,
-                unsafe_arrows : true,
-                unsafe_comps: true,
-                unsafe_Function: true,
-                unsafe_math: true,
-                unsafe_methods: true,
-                unsafe_proto: true,
-                unsafe_regexp: true,
-                unsafe_undefined:true,
-            }
-        });
-
-        if (uglifyResult.code) {
-            code = uglifyResult.code;
-        } else {
-            console.log(code);
-            console.log(uglifyResult);
-            process.exit(1);
-        }
-    }
-
-    const genSmallGlobals = a => _.range(0, a).map(x => '$' + x);
-
-    _.zip(cashGlobals, genSmallGlobals(cashGlobals.length)).forEach(([from, to]) => {
+    _.zip(cashGlobals, shortGlobals).forEach(([from, to]) => {
         code = code.replace(new RegExp('\\'+from, 'g'), to);
     });
 
-    console.log('Writing '+file+'...');
-    return code;
+    if (!MINIFY) {
+        return 'let __DEBUG=true;' + code;
+    }
+
+    if (file === 'client.js') {
+        code = handleGLCalls(code);
+
+        shaderReplacements.forEach(([from, to]) => {
+            code = code.replace(new RegExp(from, 'g'), to);
+        });
+    }
+
+    const uglifyResult = uglify(code, {
+        toplevel: file !== 'shared.js',
+        compress: {
+            ecma: 6,
+            keep_fargs: false,
+            passes: 2,
+            pure_funcs: [],
+            pure_getters: true,
+            global_defs: constants,
+
+            unsafe: true,
+            unsafe_arrows : true,
+            unsafe_comps: true,
+            unsafe_Function: true,
+            unsafe_math: true,
+            unsafe_methods: true,
+            unsafe_proto: true,
+            unsafe_regexp: true,
+            unsafe_undefined:true,
+        },
+        mangle: {
+            reserved: shortGlobals
+        }
+    });
+
+    if (typeof uglifyResult.code !== 'string') {
+        console.log(code);
+        console.log(uglifyResult);
+        process.exit(1);
+    }
+
+    return uglifyResult.code;
 };
 
-shell.rm('-rf', './js13kserver/public');
-shell.mkdir('-p', './js13kserver/public');
-shell.cp('-r', './src/*', './js13kserver/public/');
-shell.cp('-r', './public/*', './js13kserver/public/');
-shell.rm('-rf', './js13kserver/public/shaders');
-shell.rm('-rf', './js13kserver/public/*.lib.js');
-shell.rm('-rf', './js13kserver/public/*.gen.js');
-shell.rm('-rf', './js13kserver/public/constants.json');
+const processHTML = html =>
+    html.split('\n').map(x => x.trim()).join('');
 
-fs.writeFileSync('./js13kserver/public/client.js', processFile('client.js', clientCode));
-fs.writeFileSync('./js13kserver/public/shared.js', processFile('shared.js', sharedCode));
-fs.writeFileSync('./js13kserver/public/server.js', processFile('server.js', serverCode));
+const main = () => {
+    constants.__DEBUG = !MINIFY;
 
-console.log('Overwriting js13kserver/index.js with local version...');
-shell.cp('./js13kserver-index.js', 'js13kserver/index.js');
+    console.log('Packing shaders...');
+    const allShaderCode = buildShaderIncludeFile();
+    fs.writeFileSync('./src/shaders.gen.js', allShaderCode);
+    const shaderReplacements = findShaderInternalReplacements(allShaderCode);
 
-console.log('Done!');
+    const clientCode = handleInlineFileComments('client.js', fs.readFileSync('./src/client.js', 'utf8'));
+    const sharedCode = handleInlineFileComments('shared.js', fs.readFileSync('./src/shared.js', 'utf8'));
+    const serverCode = handleInlineFileComments('server.js', fs.readFileSync('./src/server.js', 'utf8'));
+
+    const cashGlobals = _.uniq(sharedCode.match(/\$[a-zA-Z0-9_]+/g));
+
+    shell.rm('-rf', './js13kserver/public');
+    shell.mkdir('-p', './js13kserver/public');
+    shell.cp('-r', './public/*', './js13kserver/public/');
+    shell.cp('./js13kserver-index.js', 'js13kserver/index.js');
+
+    console.log('Packing javascript...');
+    fs.writeFileSync('./js13kserver/public/client.js', processFile(cashGlobals, shaderReplacements, 'client.js', clientCode));
+    fs.writeFileSync('./js13kserver/public/shared.js', processFile(cashGlobals, null, 'shared.js', sharedCode));
+    fs.writeFileSync('./js13kserver/public/server.js', processFile(cashGlobals, null, 'server.js', serverCode));
+    fs.writeFileSync('./js13kserver/public/index.html', processHTML(fs.readFileSync('src/index.html', 'utf8')));
+
+    console.log('Done!');
+};
+
+main();

@@ -45,7 +45,7 @@ function createZip() {
     output.on('close', () => {
         packageSize = archive.pointer();
         shell.cd("..");
-        shell.exec("advzip"+ADVZIP_BINARY+" -4 -z js13kserver/dist.zip", {silent: true});
+        shell.exec("tools"+ADVZIP_BINARY+" -4 -z js13kserver/dist.zip", {silent: true});
         shell.cd("js13kserver");
         smallPackageSize = fs.statSync('dist.zip').size;
         console.log(`Raw zip: ${packageSize} of 13312 / ${(packageSize / 13312 * 100).toFixed(2)}%`);

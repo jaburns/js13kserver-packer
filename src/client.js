@@ -6,17 +6,17 @@ if (__DEBUG) {
 }
 
 (()=>{
-//__TOP
-
     let gl = C.getContext('webgl');
 
+    //__INSERT_GL_OPTIMIZE
+
     //__inlineFile soundbox-player.lib.js
+    //__inlineFile shaders.gen.js
     //__inlineFile math.lib.js
     //__inlineFile model.lib.js
     //__inlineFile state.lib.js
 
     let socket = io()
-      , shader = __inlineShader('ship.glsl')
       , lastReceiveState
       , lastState
       , state
@@ -49,7 +49,7 @@ if (__DEBUG) {
 
     let compileShader = () => {
         let vertShader = gl.createShader(gl.VERTEX_SHADER);
-        gl.shaderSource(vertShader, shader[0]);
+        gl.shaderSource(vertShader, ship_vert);
         gl.compileShader(vertShader);
 
         if (__DEBUG) {
@@ -61,7 +61,7 @@ if (__DEBUG) {
         }
 
         let fragShader = gl.createShader(gl.FRAGMENT_SHADER);
-        gl.shaderSource(fragShader, 'precision highp float;'+shader[1]);
+        gl.shaderSource(fragShader, 'precision highp float;'+ship_frag);
         gl.compileShader(fragShader);
 
         if (__DEBUG) {

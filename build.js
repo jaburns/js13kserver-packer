@@ -3,11 +3,10 @@ const _ = require('lodash');
 const shell = require('shelljs');
 const uglify = require("uglify-es").minify;
 
-// This pulls out common GL function names and constants in to strings.
-// It results in smaller JS, but can actually make the zip file bigger.
-const ENABLE_GL_CALL_OPTIMIZATION = false;
-
 const MINIFY = process.argv[2] === '--small';
+
+const buildShaderIncludeFile = () => {
+};
 
 const handleInlineFileComments = code => {
     const lines = code.split('\n');
@@ -38,91 +37,61 @@ const handleDebug = code => {
     return code;
 };
 
+// fs.writeFileSync('./src/shaders.gen.js', buildShaderIncludeFile());
+
 const clientCode = handleDebug(handleInlineFileComments(fs.readFileSync('./src/client.js', 'utf8')));
 const sharedCode = handleDebug(handleInlineFileComments(fs.readFileSync('./src/shared.js', 'utf8')));
 const serverCode = handleDebug(handleInlineFileComments(fs.readFileSync('./src/server.js', 'utf8')));
 
-const onlyDupes = arr => _.uniq(_.filter(arr, (v, i, a) => a.indexOf(v) !== i));
-
 const cashGlobals = _.uniq(sharedCode.match(/\$[a-zA-Z0-9_]+/g));
-const glGlobals = onlyDupes(clientCode.match(/gl\.[a-zA-Z0-9_]+/g));
 
 const genSmallGlobals = a => _.range(0, a).map(x => '$' + x);
 
-const minifyVaryingsInShader = shader => {
-    if (!MINIFY) return shader;
+// TODO this hash function collides on a few gl context functions, but apparently not
+// ones we are using yet. Should output a collision report so we can fiddle with the hash
+// if we end up needing a broken function name.
+const handleGLCalls = code => {
+    const genHashesSrc = `
+        let Z = String.fromCharCode;
+        for (let k in gl) {
+            let n = k.split('').map(x=>255-x.charCodeAt(0)).reduce((a,v,i)=>v<<i%16*2^a),
+                m = (n<0?-n:n)%17576,
+                s = Z(65+m%26) + Z(65+m/26%26) + Z(65+m/676);
+            gl[s] = gl[k];
+        }
+    `;
 
-    // TODO we can also minify uniforms and attributes, replacing their references in the final JS source
+    const genHash = k => {
+        let Z = String.fromCharCode;
+        let n = k.split('').map(x=>255-x.charCodeAt(0)).reduce((a,v,i)=>v<<i%16*2^a),
+            m = (n<0?-n:n)%17576,
+            s = Z(65+m%26) + Z(65+m/26%26) + Z(65+m/676);
+        return s;
+    };
 
-    const varyings = _.uniq(shader.match(/v_[a-zA-Z0-9]+/g));
-    const replacements = _.zip(varyings, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').slice(0, varyings.length));
+    const newGLName = from => 'gl.' + genHash(from.substr(3));
 
-    replacements.forEach(([from, to]) => {
-        shader = shader.replace(new RegExp(from, 'g'), to);
+    code = code.replace('//__INSERT_GL_OPTIMIZE', genHashesSrc);
+
+    const glCalls = _.uniq(code.match(/gl\.[a-zA-Z0-9_]+/g));
+
+    glCalls.forEach(glName => {
+        code = code.replace(new RegExp(glName.replace('.', '\\.') + '([^a-zA-Z0-9])', 'g'), newGLName(glName)+'$1');
     });
-
-    return shader;
-};
-
-const getShaderStringFromPath = path => {
-    const shader = minifyVaryingsInShader(fs.readFileSync(path, 'utf8'));
-    const vertex = '#define VERTEX\n' + shader;
-    const fragment = 'precision highp float;\n#define FRAGMENT\n' + shader;
-
-    if (!MINIFY) {
-        return `[\`${vertex}\`,\`${fragment}\`]`;
-    }
-
-    fs.writeFileSync('./tmp.min.glsl', vertex);
-    shell.exec(`glsl-minifier -sT vertex -i ./tmp.min.glsl -o ./tmp.min.glsl`);
-    const vertexMin = fs.readFileSync('./tmp.min.glsl', 'utf8');
-
-    fs.writeFileSync('./tmp.min.glsl', fragment);
-    shell.exec(`glsl-minifier -sT fragment -i ./tmp.min.glsl -o ./tmp.min.glsl`);
-    const fragmentMin = fs.readFileSync('./tmp.min.glsl', 'utf8');
-
-    shell.rm('-rf', './tmp.min.glsl');
-
-    const fragmentMinNoPrec = fragmentMin
-        .replace(/precision highp float;/g, '')
-        .replace(/mediump /g, '');
-
-    return `['${vertexMin}','${fragmentMinNoPrec}']`;
-};
-
-const handleInlineShaderCalls = code => {
-    for (let match; match = /__inlineShader\('.+'\)/.exec(code); ) {
-        const filename = match[0].replace("__inlineShader('", '').replace("')", '');
-        const shaderString = getShaderStringFromPath(`./src/shaders/${filename}`);
-        code = code.replace(match[0], shaderString);
-    }
 
     return code;
 };
 
-const handleGLCalls = code => {
-    if (! ENABLE_GL_CALL_OPTIMIZATION) return code;
-
-    const lookup = glGlobals.map((from, i) => {
-        const to = 'G'+i;
-        code = code.replace(new RegExp(from.replace('.', '\\.'), 'g'), 'gl['+to+']');
-        return [from, to];
-    });
-
-    const lookupCode = lookup.map(([from, to]) => `${to}='${from.substr(3)}'`).join(',');
-    return code.replace('//__TOP', 'let '+lookupCode+';');
-};
-
-const processFile = code => {
-    code = handleInlineShaderCalls(code);
-
+const processFile = (code, isClient) => {
     if (MINIFY) {
+        if (isClient) code = handleGLCalls(code);
+
         const uglifyResult = uglify(code, {
             compress: {
                 ecma: 6,
                 keep_fargs: false,
                 passes: 2,
-                pure_funcs: [ /*TODO mark pure funcs and find them*/ ],
+                pure_funcs: [ /*TODO maybe find pure funcs*/ ],
                 pure_getters: true,
 
                 unsafe: true,
@@ -159,9 +128,10 @@ shell.cp('-r', './src/*', './js13kserver/public/');
 shell.cp('-r', './public/*', './js13kserver/public/');
 shell.rm('-rf', './js13kserver/public/shaders');
 shell.rm('-rf', './js13kserver/public/*.lib.js');
+shell.rm('-rf', './js13kserver/public/*.gen.js');
 
-fs.writeFileSync('./js13kserver/public/client.js', processFile(MINIFY ? handleGLCalls(clientCode) : clientCode));
-fs.writeFileSync('./js13kserver/public/shared.js', processFile(sharedCode));
-fs.writeFileSync('./js13kserver/public/server.js', processFile(serverCode));
+fs.writeFileSync('./js13kserver/public/client.js', processFile(clientCode, true));
+fs.writeFileSync('./js13kserver/public/shared.js', processFile(sharedCode, false));
+fs.writeFileSync('./js13kserver/public/server.js', processFile(serverCode, false));
 
 shell.cp('./js13kserver-index.js', 'js13kserver/index.js');

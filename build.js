@@ -2,6 +2,7 @@ const fs = require('fs');
 const _ = require('lodash');
 const shell = require('shelljs');
 const uglify = require("uglify-es").minify;
+const constants = require('./src/constants.json');
 
 const MINIFY = process.argv[2] === '--small';
 
@@ -167,6 +168,7 @@ shell.cp('-r', './public/*', './js13kserver/public/');
 shell.rm('-rf', './js13kserver/public/shaders');
 shell.rm('-rf', './js13kserver/public/*.lib.js');
 shell.rm('-rf', './js13kserver/public/*.gen.js');
+shell.rm('-rf', './js13kserver/public/constants.json');
 
 fs.writeFileSync('./js13kserver/public/client.js', processFile('client.js', clientCode));
 fs.writeFileSync('./js13kserver/public/shared.js', processFile('shared.js', sharedCode));

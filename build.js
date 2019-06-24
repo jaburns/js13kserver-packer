@@ -11,10 +11,14 @@ const buildShaderIncludeFile = () => {
     shell.find('shaders').forEach(x => {
         if (!(x.endsWith('.frag') || x.endsWith('.vert'))) return;
 
-        console.log('Minifying shader '+x+'...');
-
-        shell.exec("tools\\shader_minifier.exe --preserve-externals --format js "+x+" -o tmp.js", {silent: true});
-        fileContents += fs.readFileSync('tmp.js', 'utf8');
+        if (MINIFY) {
+            console.log('Minifying shader '+x+'...');
+            shell.exec("tools\\shader_minifier.exe --preserve-externals --format js "+x+" -o tmp.js", {silent: true});
+            fileContents += fs.readFileSync('tmp.js', 'utf8');
+        } else {
+            console.log('Inlining shader '+x+'...');
+            fileContents += `var ${x.substr(x.indexOf('/')+1).replace('.', '_')} = \`${fs.readFileSync(x, 'utf8')}\`;\n\n`;
+        }
     });
 
     shell.rm('-rf', 'tmp.js');
@@ -90,7 +94,7 @@ const handleGLCalls = code => {
 
     const newGLName = from => 'gl.' + genHash(from.substr(3));
 
-    code = code.replace('//__INSERT_GL_OPTIMIZE', genHashesSrc);
+    code = code.replace('//__insertGLOptimize', genHashesSrc);
 
     const glCalls = _.uniq(code.match(/gl\.[a-zA-Z0-9_]+/g));
 

@@ -8,13 +8,14 @@ if (__DEBUG) {
 (()=>{
     let gl = C.getContext('webgl');
 
-    //__INSERT_GL_OPTIMIZE
+    //__insertGLOptimize
 
     //__inlineFile soundbox-player.lib.js
     //__inlineFile shaders.gen.js
     //__inlineFile math.lib.js
     //__inlineFile model.lib.js
     //__inlineFile state.lib.js
+    //__inlineFile song.lib.js
 
     let socket = io()
       , lastReceiveState
@@ -53,7 +54,7 @@ if (__DEBUG) {
         gl.compileShader(vertShader);
 
         if (__DEBUG) {
-            let vertLog = gl.getShaderInfoLog(vertShader); //__GL_DEBUG
+            let vertLog = gl.getShaderInfoLog(vertShader);
             if (vertLog === null || vertLog.length > 0) {
                 document.body.innerHTML = errorHTML('vertex', vertLog);
                 throw new Error('Error compiling shader');
@@ -65,7 +66,7 @@ if (__DEBUG) {
         gl.compileShader(fragShader);
 
         if (__DEBUG) {
-            const fragLog = gl.getShaderInfoLog(fragShader); //__GL_DEBUG
+            const fragLog = gl.getShaderInfoLog(fragShader);
             if (fragLog === null || fragLog.length > 0) {
                 document.body.innerHTML = errorHTML('fragment', fragLog);
                 throw new Error('Error compiling shader');
@@ -131,8 +132,6 @@ if (__DEBUG) {
     model_import('cube.8').then(x => buffers = x);
 
     let exampleSFX={songData:[{i:[0,255,116,1,0,255,120,0,1,127,4,6,35,0,0,0,0,0,0,2,14,0,10,32,0,0,0,0],p:[1],c:[{n:[140],f:[]}]}],rowLen:5513,patternLen:32,endPattern:0,numChannels:1};
-
-    //__inlineFile song.lib.js
 
     sbPlay(song);
     sbPlay(exampleSFX, x => soundyBoi = x);

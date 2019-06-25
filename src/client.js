@@ -5,7 +5,7 @@ let gl = C.getContext('webgl');
 //__inlineFile soundbox-player.inc.js
 //__inlineFile shaders.gen.js
 //__inlineFile math.inc.js
-//__inlineFile model.inc.js
+//__inlineFile gfx.inc.js
 //__inlineFile state.inc.js
 //__inlineFile song.inc.js
 
@@ -117,7 +117,7 @@ shaderProg = compileShader();
 
 update();
 
-model_import('cube.8').then(x => buffers = x);
+gfx_loadModel('cube.8').then(x => buffers = x);
 
 let exampleSFX={songData:[{i:[0,255,116,1,0,255,120,0,1,127,4,6,35,0,0,0,0,0,0,2,14,0,10,32,0,0,0,0],p:[1],c:[{n:[140],f:[]}]}],rowLen:5513,patternLen:32,endPattern:0,numChannels:1};
 

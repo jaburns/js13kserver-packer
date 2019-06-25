@@ -5,6 +5,7 @@ const uglify = require("uglify-es").minify;
 const constants = require('./src/constants.json');
 
 const SHADER_MIN_TOOL = process.platform === 'win32' ? 'tools\\shader_minifier.exe' : 'mono tools/shader_minifier.exe';
+const ADVZIP_TOOL = process.platform === 'win32' ? '..\\..\\tools\\advzip.exe' : '../../tools/advzip.osx';
 const MINIFY = process.argv[2] === '--small';
 
 const buildShaderIncludeFile = () => {
@@ -148,6 +149,9 @@ const processFile = (cashGlobals, shaderReplacements, file, code) => {
 const processHTML = html =>
     html.split('\n').map(x => x.trim()).join('');
 
+const statsMessage = bytes =>
+    `Final archive size: ${bytes} of 13312 / ${(bytes / 13312 * 100).toFixed(2)}%`;
+
 const main = () => {
     constants.__DEBUG = !MINIFY;
 
@@ -173,7 +177,17 @@ const main = () => {
     fs.writeFileSync('./js13kserver/public/server.js', processFile(cashGlobals, null, 'server.js', serverCode));
     fs.writeFileSync('./js13kserver/public/index.html', processHTML(fs.readFileSync('src/index.html', 'utf8')));
 
-    console.log('Done!');
+    if (MINIFY) {
+        console.log('Packing zip archive...');
+        shell.cd('js13kserver/public');
+        shell.exec(ADVZIP_TOOL + ' -q -a -4 ../../bundle.zip *');
+        shell.cd('../..');
+
+        console.log('Done!\n\n' + statsMessage(fs.statSync('bundle.zip').size) + '\n');
+    }
+    else {
+        console.log('Done!\n');
+    }
 };
 
 main();

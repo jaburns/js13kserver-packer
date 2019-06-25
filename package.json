@@ -2,7 +2,8 @@
   "name": "js13k-ts-server",
   "private": true,
   "scripts": {
-    "start": "node build --small",
+    "start": "node js13kserver/index.js",
+    "build": "node build --small",
     "fast": "node build",
     "bash": "bash"
   },

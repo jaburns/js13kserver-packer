@@ -1,5 +1,7 @@
+"use strict";
+process.chdir(__dirname);
+
 const fs = require('fs');
-const archiver = require('archiver');
 const express = require('express');
 const session = require('express-session');
 const parser = require('body-parser');
@@ -9,13 +11,6 @@ const io = require('socket.io')(server);
 const code = fs.readFileSync('./public/server.js', 'utf8');
 const shared = fs.readFileSync('./public/shared.js', 'utf8');
 const storage = require('./lib/storage');
-
-const shell = require('shelljs');
-
-const ADVZIP_BINARY = process.platform === 'win32' ? '\\advzip.exe' : '/advzip.osx';
-
-let packageSize = 0;
-let smallPackageSize;
 
 function createSandbox() {
     const sandbox = {
@@ -39,32 +34,14 @@ function createSandbox() {
     return sandbox;
 };
 
-function createZip() {
-    const archive = archiver('zip', {zlib: { level: 9 }});
-    const output = fs.createWriteStream('dist.zip');
-    output.on('close', () => {
-        packageSize = archive.pointer();
-        shell.cd("..");
-        shell.exec("tools"+ADVZIP_BINARY+" -4 -z js13kserver/dist.zip", {silent: true});
-        shell.cd("js13kserver");
-        smallPackageSize = fs.statSync('dist.zip').size;
-        console.log(`Raw zip: ${packageSize} of 13312 / ${(packageSize / 13312 * 100).toFixed(2)}%`);
-        console.log(` AdvZIP: ${smallPackageSize} of 13312 / ${(smallPackageSize / 13312 * 100).toFixed(2)}%`);
-    });
-    archive.pipe(output);
-    archive.directory('public/', '');
-    archive.finalize();
-};
-
 app.set('port', (process.env.PORT || 3000))
     .set('storage', process.env.DATABASE_URL || 'sqlite:storage.sqlite')
     .get('/server-info', (req, res) => {
         let limit = 13312,
             storageSize = storage.interface.size();
-        res.set('Content-Type', 'text/plain').send([
-            `Package: ${packageSize} byte / ${(packageSize ? packageSize / limit * 100 : 0).toFixed(2)}%`,
+        res.set('Content-Type', 'text/plain').send(
             `Storage: ${storageSize} byte / ${(storageSize ? storageSize / limit * 100 : 0).toFixed(2)}%`
-        ].join("\n"));
+        );
     })
     .use(express.static('public'))
     .use(session({ secret: 'js13kserver', saveUninitialized: false, resave: false }));
@@ -87,7 +64,6 @@ storage.init(app.get('storage')).then(() => {
     }
     server.listen(app.get('port'), () => {
         console.log('Server started at port: ' + app.get('port'));
-        createZip();
     });
 }).catch(err => {
     console.error(err);

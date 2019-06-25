@@ -42,7 +42,7 @@ const findShaderInternalReplacements = allShaderCode => {
     return _.zip(externals, alphabet.slice(0, externals.length));
 };
 
-const handleInlineFileComments = (file, code) => {
+const handleInlineFileComments = code => {
     const lines = code.split('\n');
     const result = [];
 
@@ -87,7 +87,7 @@ const handleGLCalls = code => {
         console.log(localCollisions);
         console.log('\nThe following identifiers are currently not mangled uniquely:');
         console.log(allCollisions);
-        console.log('\nAdjust the value of MAGIC_HASH_OFFSET in build.js until no more collisions occur :)');
+        console.log('\nAdjust the value of MAGIC_HASH_OFFSET in build.js until no more collisions occur :)\n');
         process.exit(1);
     }
 
@@ -164,9 +164,9 @@ const main = () => {
     fs.writeFileSync('./src/shaders.gen.js', allShaderCode);
     const shaderReplacements = findShaderInternalReplacements(allShaderCode);
 
-    const clientCode = handleInlineFileComments('client.js', fs.readFileSync('./src/client.js', 'utf8'));
-    const sharedCode = handleInlineFileComments('shared.js', fs.readFileSync('./src/shared.js', 'utf8'));
-    const serverCode = handleInlineFileComments('server.js', fs.readFileSync('./src/server.js', 'utf8'));
+    const clientCode = handleInlineFileComments(fs.readFileSync('./src/client.js', 'utf8'));
+    const sharedCode = handleInlineFileComments(fs.readFileSync('./src/shared.js', 'utf8'));
+    const serverCode = handleInlineFileComments(fs.readFileSync('./src/server.js', 'utf8'));
 
     const cashGlobals = _.uniq(sharedCode.match(/\$[a-zA-Z0-9_]+/g));
 

@@ -3,6 +3,9 @@ const _ = require('lodash');
 const shell = require('shelljs');
 const uglify = require("uglify-es").minify;
 const constants = require('./src/constants.json');
+const webglFuncs = require('./webgl-funcs.json');
+
+const MAGIC_HASH_OFFSET = 2;
 
 const SHADER_MIN_TOOL = process.platform === 'win32' ? 'tools\\shader_minifier.exe' : 'mono tools/shader_minifier.exe';
 const ADVZIP_TOOL = process.platform === 'win32' ? '..\\..\\tools\\advzip.exe' : '../../tools/advzip.osx';
@@ -57,37 +60,41 @@ const handleInlineFileComments = (file, code) => {
     return result.join('\n');
 };
 
+const findHashCollisions = (hashFunc, items) => {
+    const hashes = items.map(hashFunc);
+    const dupes = _.uniq(_.filter(hashes, (v, i, a) => a.indexOf(v) !== i));
+
+    return items
+        .map((x, i) => dupes.indexOf(hashes[i]) >= 0 ? x : null)
+        .filter(x => x !== null);
+};
+
 const handleGLCalls = code => {
-    // TODO this hash function collides on a few gl context functions, but apparently not
-    // ones we are using yet. Should output a collision report so we can fiddle with the hash
-    // if we end up needing a broken function name.
-
-    const genHashesSrc = `
-        let Z = String.fromCharCode;
-        for (let k in gl) {
-            let n = k.split('').map(x=>255-x.charCodeAt(0)).reduce((a,v,i)=>v<<i%16*2^a),
-                m = (n<0?-n:n)%17576,
-                s = Z(97+m%26) + Z(97+m/26%26) + Z(97+m/676);
-            gl[s] = gl[k];
-        }
-    `;
-
-    const genHash = k => {
-        let Z = String.fromCharCode;
-        let n = k.split('').map(x=>255-x.charCodeAt(0)).reduce((a,v,i)=>v<<i%16*2^a),
+    const hashAlgo = `
+        let Z = String.fromCharCode,
+            n = k.split('').map(x=>x.charCodeAt(0)+${MAGIC_HASH_OFFSET}).reduce((a,v,i)=>v<<i%16*2^a),
             m = (n<0?-n:n)%17576,
-            s = Z(97+m%26) + Z(97+m/26%26) + Z(97+m/676);
-        return s;
-    };
+            s = Z(97+m%26) + Z(97+m/26%26) + Z(97+m/676)`;
 
-    const newGLName = from => 'gl.' + genHash(from.substr(3));
+    const genHash = k => eval(hashAlgo + ';s');
 
-    code = code.replace('//__insertGLOptimize', genHashesSrc);
+    const glCalls = _.uniq(code.match(/gl\.[a-zA-Z0-9_]+/g)).map(x => x.substr(3));
+    const allCollisions = findHashCollisions(genHash, webglFuncs);
+    const localCollisions = glCalls.map(x => allCollisions.indexOf(x) >= 0 ? x : null).filter(x => x !== null);
 
-    const glCalls = _.uniq(code.match(/gl\.[a-zA-Z0-9_]+/g));
+    if (localCollisions.length > 0) {
+        console.log('The source is using one or more WebGL calls which collide in the mangler:');
+        console.log(localCollisions);
+        console.log('\nThe following identifiers are currently not mangled uniquely:');
+        console.log(allCollisions);
+        console.log('\nAdjust the value of MAGIC_HASH_OFFSET in build.js until no more collisions occur :)');
+        process.exit(1);
+    }
 
-    glCalls.forEach(glName => {
-        code = code.replace(new RegExp(glName.replace('.', '\\.') + '([^a-zA-Z0-9])', 'g'), newGLName(glName)+'$1');
+    code = code.replace('//__insertGLOptimize', `for (let k in gl) { ${hashAlgo}; gl[s] = gl[k]; }`);
+
+    glCalls.forEach(func => {
+        code = code.replace(new RegExp(`gl\\.${func}([^a-zA-Z0-9])`, 'g'), `gl.${genHash(func)}$1`);
     });
 
     return code;
@@ -149,9 +156,6 @@ const processFile = (cashGlobals, shaderReplacements, file, code) => {
 const processHTML = html =>
     html.split('\n').map(x => x.trim()).join('');
 
-const statsMessage = bytes =>
-    `Final archive size: ${bytes} of 13312 / ${(bytes / 13312 * 100).toFixed(2)}%`;
-
 const main = () => {
     constants.__DEBUG = !MINIFY;
 
@@ -177,17 +181,20 @@ const main = () => {
     fs.writeFileSync('./js13kserver/public/server.js', processFile(cashGlobals, null, 'server.js', serverCode));
     fs.writeFileSync('./js13kserver/public/index.html', processHTML(fs.readFileSync('src/index.html', 'utf8')));
 
-    if (MINIFY) {
-        console.log('Packing zip archive...');
-        shell.cd('js13kserver/public');
-        shell.exec(ADVZIP_TOOL + ' -q -a -4 ../../bundle.zip *');
-        shell.cd('../..');
-
-        console.log('Done!\n\n' + statsMessage(fs.statSync('bundle.zip').size) + '\n');
-    }
-    else {
+    if (!MINIFY) {
         console.log('Done!\n');
+        return;
     }
+
+    console.log('Packing zip archive...');
+    shell.cd('js13kserver/public');
+    shell.exec(ADVZIP_TOOL + ' -q -a -4 ../../bundle.zip *');
+    shell.cd('../..');
+
+    const bytes = fs.statSync('bundle.zip').size;
+
+    console.log('Done!\n');
+    console.log(`Final archive size: ${bytes} of 13312 / ${(bytes / 13312 * 100).toFixed(2)}%\n`);
 };
 
 main();

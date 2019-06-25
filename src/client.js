@@ -2,12 +2,12 @@ let gl = C.getContext('webgl');
 
 //__insertGLOptimize
 
-//__inlineFile soundbox-player.lib.js
+//__inlineFile soundbox-player.inc.js
 //__inlineFile shaders.gen.js
-//__inlineFile math.lib.js
-//__inlineFile model.lib.js
-//__inlineFile state.lib.js
-//__inlineFile song.lib.js
+//__inlineFile math.inc.js
+//__inlineFile model.inc.js
+//__inlineFile state.inc.js
+//__inlineFile song.inc.js
 
 let socket = io()
   , lastReceiveState
@@ -87,7 +87,7 @@ let render = state => {
         transform.p[2] = -3;
 
         let projectionMatrix = mat4_create();
-        mat4_perspective(projectionMatrix, Math.PI/2, aspectRatio, .01, 100);
+        mat4_perspective(projectionMatrix, aspectRatio, .01, 100);
 
         let viewMatrix = mat4_create();
         // something something camera

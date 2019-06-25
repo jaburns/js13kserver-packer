@@ -5,11 +5,11 @@ const uglify = require("uglify-es").minify;
 const constants = require('./src/constants.json');
 const webglFuncs = require('./webgl-funcs.json');
 
-const MAGIC_HASH_OFFSET = 2;
-
 const SHADER_MIN_TOOL = process.platform === 'win32' ? 'tools\\shader_minifier.exe' : 'mono tools/shader_minifier.exe';
 const ADVZIP_TOOL = process.platform === 'win32' ? '..\\..\\tools\\advzip.exe' : '../../tools/advzip.osx';
 const MINIFY = process.argv[2] === '--small';
+
+const MAGIC_HASH_OFFSET = 2;
 
 const buildShaderIncludeFile = () => {
     let fileContents = '';
@@ -39,10 +39,37 @@ const findShaderInternalReplacements = allShaderCode => {
 
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
-    return _.zip(externals, alphabet.slice(0, externals.length));
+    return _.zip(
+        externals.map(x => new RegExp(x, 'g')),
+        alphabet.slice(0, externals.length)
+    );
 };
 
-const handleInlineFileComments = code => {
+const findSharedFunctionReplacements = sharedCode => {
+    const cashGlobals = _.uniq(sharedCode.match(/\$[a-zA-Z0-9_]+/g));
+    const shortGlobals = _.range(0, cashGlobals.length).map(x => '$' + x);
+
+    return _.zip(
+        cashGlobals.map(x => new RegExp('\\'+x, 'g')),
+        shortGlobals
+    );
+};
+
+const findExternalFileReplacementsAndRenameFiles = () => {
+    const files = shell.ls('js13kserver/public');
+    const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
+
+    files.forEach((x, i) => {
+        shell.mv('js13kserver/public/'+x, 'js13kserver/public/'+alphabet[i]);
+    });
+
+    return _.zip(
+        files.map(x => new RegExp(x.replace(/\./g, '\\.'), 'g')),
+        alphabet.slice(0, files.length)
+    );
+};
+
+const replaceInlineDirectivesWithInlinedFiles = code => {
     const lines = code.split('\n');
     const result = [];
 
@@ -69,7 +96,7 @@ const findHashCollisions = (hashFunc, items) => {
         .filter(x => x !== null);
 };
 
-const handleGLCalls = code => {
+const mangleGLCalls = code => {
     const hashAlgo = `
         let Z = String.fromCharCode,
             n = k.split('').map(x=>x.charCodeAt(0)+${MAGIC_HASH_OFFSET}).reduce((a,v,i)=>v<<i%16*2^a),
@@ -100,24 +127,14 @@ const handleGLCalls = code => {
     return code;
 };
 
-const processFile = (cashGlobals, shaderReplacements, file, code) => {
-    const shortGlobals = _.range(0, cashGlobals.length).map(x => '$' + x);
-
-    _.zip(cashGlobals, shortGlobals).forEach(([from, to]) => {
-        code = code.replace(new RegExp('\\'+from, 'g'), to);
-    });
-
+const processFile = (replacements, file, code) => {
     if (!MINIFY) {
         return 'let __DEBUG=true;' + code;
     }
 
-    if (file === 'client.js') {
-        code = handleGLCalls(code);
+    replacements.forEach(([from, to]) => code = code.replace(from, to));
 
-        shaderReplacements.forEach(([from, to]) => {
-            code = code.replace(new RegExp(from, 'g'), to);
-        });
-    }
+    if (file === 'client.js') code = mangleGLCalls(code);
 
     const uglifyResult = uglify(code, {
         toplevel: file !== 'shared.js',
@@ -138,9 +155,6 @@ const processFile = (cashGlobals, shaderReplacements, file, code) => {
             unsafe_proto: true,
             unsafe_regexp: true,
             unsafe_undefined:true,
-        },
-        mangle: {
-            reserved: shortGlobals
         }
     });
 
@@ -153,33 +167,40 @@ const processFile = (cashGlobals, shaderReplacements, file, code) => {
     return uglifyResult.code;
 };
 
-const processHTML = html =>
-    html.split('\n').map(x => x.trim()).join('');
+const processHTML = (html, clientJS) =>
+    html.replace('__clientJS', clientJS.replace(/"/g, "'")).split('\n').map(x => x.trim()).join('');
 
 const main = () => {
     constants.__DEBUG = !MINIFY;
-
-    console.log('Packing shaders...');
-    const allShaderCode = buildShaderIncludeFile();
-    fs.writeFileSync('./src/shaders.gen.js', allShaderCode);
-    const shaderReplacements = findShaderInternalReplacements(allShaderCode);
-
-    const clientCode = handleInlineFileComments(fs.readFileSync('./src/client.js', 'utf8'));
-    const sharedCode = handleInlineFileComments(fs.readFileSync('./src/shared.js', 'utf8'));
-    const serverCode = handleInlineFileComments(fs.readFileSync('./src/server.js', 'utf8'));
-
-    const cashGlobals = _.uniq(sharedCode.match(/\$[a-zA-Z0-9_]+/g));
 
     shell.rm('-rf', './js13kserver/public');
     shell.mkdir('-p', './js13kserver/public');
     shell.cp('-r', './public/*', './js13kserver/public/');
     shell.cp('./js13kserver-index.js', 'js13kserver/index.js');
 
+    console.log('Packing shaders...');
+
+    const allShaderCode = buildShaderIncludeFile();
+    fs.writeFileSync('./src/shaders.gen.js', allShaderCode);
+
+    const clientCode = replaceInlineDirectivesWithInlinedFiles(fs.readFileSync('./src/client.js', 'utf8'));
+    const sharedCode = replaceInlineDirectivesWithInlinedFiles(fs.readFileSync('./src/shared.js', 'utf8'));
+    const serverCode = replaceInlineDirectivesWithInlinedFiles(fs.readFileSync('./src/server.js', 'utf8'));
+
+    const replacements = MINIFY ? _.flatten([
+        findShaderInternalReplacements(allShaderCode),
+        findSharedFunctionReplacements(sharedCode),
+        findExternalFileReplacementsAndRenameFiles()
+    ]) : [];
+
     console.log('Packing javascript...');
-    fs.writeFileSync('./js13kserver/public/client.js', processFile(cashGlobals, shaderReplacements, 'client.js', clientCode));
-    fs.writeFileSync('./js13kserver/public/shared.js', processFile(cashGlobals, null, 'shared.js', sharedCode));
-    fs.writeFileSync('./js13kserver/public/server.js', processFile(cashGlobals, null, 'server.js', serverCode));
-    fs.writeFileSync('./js13kserver/public/index.html', processHTML(fs.readFileSync('src/index.html', 'utf8')));
+
+    const finalClientJS = processFile(replacements, 'client.js', clientCode);
+    const finalHTML = processHTML(fs.readFileSync('src/index.html', 'utf8'), finalClientJS);
+
+    fs.writeFileSync('./js13kserver/public/index.html', finalHTML);
+    fs.writeFileSync('./js13kserver/public/shared.js', processFile(replacements, 'shared.js', sharedCode));
+    fs.writeFileSync('./js13kserver/public/server.js', processFile(replacements, 'server.js', serverCode));
 
     if (!MINIFY) {
         console.log('Done!\n');
@@ -187,6 +208,7 @@ const main = () => {
     }
 
     console.log('Packing zip archive...');
+
     shell.cd('js13kserver/public');
     shell.exec(ADVZIP_TOOL + ' -q -a -4 ../../bundle.zip *');
     shell.cd('../..');

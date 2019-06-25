@@ -37,8 +37,9 @@ let mat4_create = () => {
 };
 
 // Assumes out is either identity matrix or has only been written to by this function.
-let mat4_perspective = (out, fovy, aspect, near, far) => {
-    let f = 1.0 / Math.tan(fovy / 2), nf;
+let mat4_perspective = (out, aspect, near, far) => {
+//  let f = 1.0 / Math.tan(fovy / 2), nf;
+    let f = 1, nf;  // Hard-coded FOV to PI / 2 here.
     out[0] = f / aspect;
     out[5] = f;
     out[11] = -1;

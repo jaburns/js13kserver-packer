@@ -336,11 +336,13 @@ let sbPlay = (song, cb) => {
 
         var wave = createWave();
         var audio = document.createElement("audio");
-        audio.loop = !cb;
-        audio.onloadeddata = () => {
+        var onLoaded = _ => {
             if (cb) cb({play() {audio.pause(); audio.currentTime = 0; audio.play()}});
-            else setTimeout(_=>audio.play(),0); // Still getting DOMException on first load of music :(
-        }
+            else audio.play().catch(_=>setTimeout(onLoaded,0));
+        };
+
+        audio.loop = !cb;
+        audio.onloadeddata = onLoaded;
         audio.src = URL.createObjectURL(new Blob([wave], {type: "audio/wav"}));
     };
 

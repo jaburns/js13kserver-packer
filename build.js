@@ -129,7 +129,12 @@ const mangleGLCalls = code => {
 
 const processFile = (replacements, file, code) => {
     if (!MINIFY) {
-        return 'let __DEBUG=true;' + code;
+        if (file === 'shared.js') {
+            for (let k in constants) {
+                code = `let ${k} = ${constants[k]};\n` + code;
+            }
+        }
+        return code;
     }
 
     replacements.forEach(([from, to]) => code = code.replace(from, to));
@@ -168,7 +173,7 @@ const processFile = (replacements, file, code) => {
 };
 
 const processHTML = (html, clientJS) =>
-    html.replace('__clientJS', clientJS.replace(/"/g, "'")).split('\n').map(x => x.trim()).join('');
+    html.split('\n').map(x => x.trim()).join('').replace('__clientJS', clientJS.replace(/"/g, "'"))
 
 const main = () => {
     constants.__DEBUG = !MINIFY;
@@ -196,7 +201,7 @@ const main = () => {
     console.log('Packing javascript...');
 
     const finalClientJS = processFile(replacements, 'client.js', clientCode);
-    const finalHTML = processHTML(fs.readFileSync('src/index.html', 'utf8'), finalClientJS);
+    const finalHTML = processHTML(fs.readFileSync(MINIFY ? 'src/index.html' : 'src/index.debug.html', 'utf8'), finalClientJS);
 
     fs.writeFileSync('./js13kserver/public/index.html', finalHTML);
     fs.writeFileSync('./js13kserver/public/shared.js', processFile(replacements, 'shared.js', sharedCode));

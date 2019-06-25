@@ -3,43 +3,35 @@
  * https://github.com/toji/gl-matrix
  */
 
-let vec3_fromValues = (x,y,z) => {
-    let out = new Float32Array(3);
-    out[0] = x;
-    out[1] = y;
-    out[2] = z;
-    return out;
-};
-
-let quat_create = () => {
-    let out = new Float32Array(4);
-    out[3] = 1;
-    return out;
-};
-
-let quat_setAxisAngle = (out, axis, rad) => {
-    rad = rad * 0.5;
+let quat_setAxisAngle = (axis, rad) => {
+    rad *= .5;
     let s = Math.sin(rad);
-    out[0] = s * axis[0];
-    out[1] = s * axis[1];
-    out[2] = s * axis[2];
-    out[3] = Math.cos(rad);
-    return out;
+    return [s * axis[0], s * axis[1], s * axis[2], Math.cos(rad)];
 };
 
-let mat4_create = () => {
-    let out = new Float32Array(16);
-    out[0] = 1;
-    out[5] = 1;
-    out[10] = 1;
-    out[15] = 1;
-    return out;
-};
+/*
 
 // Assumes out is either identity matrix or has only been written to by this function.
-let mat4_perspective = (out, aspect, near, far) => {
+let mat4_perspective = (aspect, near, far) => {
 //  let f = 1.0 / Math.tan(fovy / 2), nf;
     let f = 1, nf;  // Hard-coded FOV to PI / 2 here.
+
+    let out = [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,1];
     out[0] = f / aspect;
     out[5] = f;
     out[11] = -1;
@@ -53,12 +45,28 @@ let mat4_perspective = (out, aspect, near, far) => {
     }
     return out;
 };
+*/
 
-let mat4_multiply = (out, a, b) => {
+// Assumes out is either identity matrix or has only been written to by this function.
+let mat4_perspective = (aspect, near, far) => {
+//  let f = 1.0 / Math.tan(fovy / 2), nf = 1 / (near - far)
+    let f = 1, nf = 1 / (near - far);  // Hard-coded FOV to PI / 2 here.
+
+    return [
+        f / aspect, 0, 0, 0,
+        0, f, 0, 0,
+        0, 0, (far + near) * nf, -1,
+        0, 0, (2 * far * near) * nf, 1
+    ];
+};
+
+let mat4_multiply = (a, b) => {
     let a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
     let a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
     let a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
     let a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
+
+    let out = []; // TODO inline everything in to one big return;
 
     // Cache only the current line of the second matrix
     let b0  = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
@@ -87,7 +95,7 @@ let mat4_multiply = (out, a, b) => {
     return out;
 };
 
-let mat4_fromRotationTranslationScale = (out, q, v, s) => {
+let mat4_fromRotationTranslationScale = (q, v, s) => {
     // Quaternion math
     let x = q[0], y = q[1], z = q[2], w = q[3];
     let x2 = x + x;
@@ -107,35 +115,31 @@ let mat4_fromRotationTranslationScale = (out, q, v, s) => {
     let sy = s[1];
     let sz = s[2];
 
-    out[0] = (1 - (yy + zz)) * sx;
-    out[1] = (xy + wz) * sx;
-    out[2] = (xz - wy) * sx;
-    out[3] = 0;
-    out[4] = (xy - wz) * sy;
-    out[5] = (1 - (xx + zz)) * sy;
-    out[6] = (yz + wx) * sy;
-    out[7] = 0;
-    out[8] = (xz + wy) * sz;
-    out[9] = (yz - wx) * sz;
-    out[10] = (1 - (xx + yy)) * sz;
-    out[11] = 0;
-    out[12] = v[0];
-    out[13] = v[1];
-    out[14] = v[2];
-    out[15] = 1;
-
-    return out;
+    return [
+    (1 - (yy + zz)) * sx
+    ,(xy + wz) * sx
+    ,(xz - wy) * sx
+    ,0
+    ,(xy - wz) * sy
+    ,(1 - (xx + zz)) * sy
+    ,(yz + wx) * sy
+    ,0
+    ,(xz + wy) * sz
+    ,(yz - wx) * sz
+    , (1 - (xx + yy)) * sz
+    , 0
+    , v[0]
+    , v[1]
+    , v[2]
+    , 1];
 }
 
 /**
  * Other Stuff
  */
 
-let Transform_create = () => ({
-    p: vec3_fromValues(0, 0, 0),
-    r: quat_create(),
-    s: vec3_fromValues(1, 1, 1)
-});
+let Transform_create = () =>
+    ({ p: [0,0,0], r: [0,0,0,1], s: [1,1,1] });
 
-let Transform_toMatrix = (self, out) => 
-    mat4_fromRotationTranslationScale(out, self.r, self.p, self.s);
+let Transform_toMatrix = self => 
+    mat4_fromRotationTranslationScale(self.r, self.p, self.s);

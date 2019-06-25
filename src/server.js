@@ -1,17 +1,10 @@
-const LEFT = 37, 
-    UP = 38, 
-    RIGHT = 39, 
-    DOWN = 40;
+//__inlineFile state.inc.js
 
 let players = [];
 
 setInterval(() => {
     players.forEach(p => {
-        if (p.k.indexOf(LEFT)  >= 0) p.x -= 0.05;
-        if (p.k.indexOf(UP)    >= 0) p.y += 0.05;
-        if (p.k.indexOf(RIGHT) >= 0) p.x += 0.05;
-        if (p.k.indexOf(DOWN)  >= 0) p.y -= 0.05;
-
+        state_updatePlayer(p);
         p.s.emit('s', players.map(p => ({x:p.x, y:p.y})));
     });
 }, G_TICK_MILLIS);

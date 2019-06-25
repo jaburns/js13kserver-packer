@@ -81,21 +81,18 @@ let render = state => {
 
     state.forEach((player, i) => {
         let t = Date.now() / 1000 + i*1.7;
-        quat_setAxisAngle(transform.r, [.16,.81,.57], t);
+        transform.r = quat_setAxisAngle([.16,.81,.57], t);
         transform.p[0] = 4*player.x - 2;
         transform.p[1] = 4*player.y - 2;
         transform.p[2] = -3;
 
-        let projectionMatrix = mat4_create();
-        mat4_perspective(projectionMatrix, aspectRatio, .01, 100);
+        let projectionMatrix = mat4_perspective(aspectRatio, .01, 100);
 
-        let viewMatrix = mat4_create();
-        // something something camera
+        let viewMatrix = [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]; // something something camera
 
-        let modelMatrix = mat4_create();
-        Transform_toMatrix(transform, modelMatrix);
+        let modelMatrix = Transform_toMatrix(transform);
 
-        let mvp = mat4_multiply(mat4_create(), projectionMatrix, mat4_multiply(mat4_create(), viewMatrix, modelMatrix));
+        let mvp = mat4_multiply(projectionMatrix, mat4_multiply(viewMatrix, modelMatrix));
 
         gl.uniformMatrix4fv(gl.getUniformLocation(shaderProg, 'u_mvp'), false, mvp);
 

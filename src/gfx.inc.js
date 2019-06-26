@@ -2,22 +2,23 @@ let gfx_loadBufferObjects = (verts, tris, norms) => {
     let result = {t:tris.length};
 
     result.v = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, v);
+    gl.bindBuffer(gl.ARRAY_BUFFER, result.v);
     gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
 
     result.i = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, i);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, result.i);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, tris, gl.STATIC_DRAW);
 
     if (norms) {
         result.n = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, n);
+        gl.bindBuffer(gl.ARRAY_BUFFER, result.n);
         gl.bufferData(gl.ARRAY_BUFFER, norms, gl.STATIC_DRAW);
     }
 
     return result;
 };
 
+/*
 let gfx_flatShadeAndloadBufferObjects = (verts, tris) => {
     let newVerts = [];
     let newTris = [];
@@ -51,6 +52,7 @@ let gfx_flatShadeAndloadBufferObjects = (verts, tris) => {
         new Float32Array(norms)
     );
 };
+*/
 
 let gfx_loadBufferObjectsFromModelFile = (arrayBuffer, mode16) => {
     let bytes = new Uint8Array(arrayBuffer);
@@ -73,7 +75,7 @@ let gfx_loadBufferObjectsFromModelFile = (arrayBuffer, mode16) => {
     
     let tris = new Uint16Array(mode16 ? bytes.buffer.slice(triOffset) : bytes.subarray(triOffset));
 
-    return gfx_flatShadeAndloadBufferObjects(new Float32Array(verts), tris);
+    return gfx_loadBufferObjects(new Float32Array(verts), tris);
 };
 
 let gfx_loadModel = s =>

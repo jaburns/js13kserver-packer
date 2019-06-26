@@ -9,23 +9,85 @@ const SHADER_MIN_TOOL = process.platform === 'win32' ? 'tools\\shader_minifier.e
 const ADVZIP_TOOL = process.platform === 'win32' ? '..\\..\\tools\\advzip.exe' : '../../tools/advzip.osx';
 const MINIFY = process.argv[2] === '--small';
 
+let shaderMinNames = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
 const MAGIC_HASH_OFFSET = 2;
+
+const extractGLSLFunctionName = proto =>
+    proto.substring(proto.indexOf(' ') + 1, proto.indexOf('('));
+
+const findExportedShaderIncludeFuncs = code => {
+    const lines = code.split('\n').map(x => x.trim());
+    const result = [];
+
+    while (lines.length > 0) {
+        const line = lines.shift();
+        if (line.indexOf('//__export') >= 0) {
+            result.push(extractGLSLFunctionName(lines.shift()));
+        }
+    }
+
+    return result;
+};
+
+const findShaderIncludes = code => code
+    .split('\n')
+    .map(x => x.trim())
+    .filter(x => x.startsWith('//__include'))
+    .map(x => x.substr(x.indexOf(' ') + 1).replace('.', '_'));
 
 const buildShaderIncludeFile = () => {
     let fileContents = '';
+    let includedFuncs = [];
+    let includeHeaderMappings = [];
 
-    shell.find('shaders').forEach(x => {
-        if (!(x.endsWith('.frag') || x.endsWith('.vert'))) return;
+    shell.find('shaders')
+        .map(x => x)
+        .sort((a, b) => a.endsWith('inc') ? -1 : b.endsWith('inc') ? 1 : 0)
+        .forEach(x => {
+            if (!(x.endsWith('.frag') || x.endsWith('.vert') || x.endsWith('.inc'))) return;
 
-        if (MINIFY) {
-            shell.exec(SHADER_MIN_TOOL + " --preserve-externals --format js "+x+" -o tmp.js", {silent: true});
-            fileContents += fs.readFileSync('tmp.js', 'utf8');
-        } else {
-            fileContents += `var ${x.substr(x.indexOf('/')+1).replace('.', '_')} = \`${fs.readFileSync(x, 'utf8')}\`;\n\n`;
-        }
-    });
+            const rawFile = fs.readFileSync(x, 'utf8');
+            const varFileName = x.substr(x.indexOf('/')+1).replace('.', '_');
+            const includes = findShaderIncludes(rawFile);
+
+            if (includes.length > 0)
+                includeHeaderMappings = includeHeaderMappings
+                    .concat({file: varFileName, incs: includes });
+
+            if (MINIFY) {
+                const incFuncs = findExportedShaderIncludeFuncs(rawFile);
+                const incFuncsArg = incFuncs.length > 0 ? `--no-renaming-list ${incFuncs}` : '';
+
+                includedFuncs = includedFuncs.concat(incFuncs);
+
+                shell.exec(`${SHADER_MIN_TOOL} --preserve-externals ${incFuncsArg} --format js ${x} -o tmp.js`, {silent: true});
+                fileContents += fs.readFileSync('tmp.js', 'utf8');
+            } else {
+                fileContents += `var ${varFileName} = \`${rawFile}\`;\n\n`;
+            }
+        });
 
     shell.rm('-rf', 'tmp.js');
+
+    includedFuncs = _.uniq(includedFuncs);
+
+    _.zip(includedFuncs, shaderMinNames.splice(0, includedFuncs.length)).forEach(([from, to]) => {
+        fileContents = fileContents.replace(new RegExp(from, 'g'), to);
+    });
+
+    includeHeaderMappings.forEach(({file, incs}) => {
+        fileContents = fileContents.replace(`var ${file} =`, `var ${file} = ${incs.join('+')} +`);
+    });
+
+//  fileContents = `
+//      let shader_uniform = "uniform",
+//          shader_attribute = "attribute",
+//          shader_varying = "varying";`
+//      + fileContents.replace(/"/g, '`')
+//          .replace(/uniform/g, '${shader_uniform}')
+//          .replace(/attribute/g, '${shader_attribute}')
+//          .replace(/varying/g, '${shader_varying}');
 
     return fileContents;
 };
@@ -37,11 +99,14 @@ const findShaderInternalReplacements = allShaderCode => {
         _.uniq(allShaderCode.match(/a_[a-zA-Z0-9_]+/g))
     ]);
 
-    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    if (externals.length > shaderMinNames.length) {
+        console.log('Not enough names in shaderMinNames');
+        process.exit(1);
+    }
 
     return _.zip(
         externals.map(x => new RegExp(x, 'g')),
-        alphabet.slice(0, externals.length)
+        shaderMinNames.splice(0, externals.length)
     );
 };
 
@@ -140,8 +205,6 @@ const processFile = (replacements, file, code) => {
     replacements.forEach(([from, to]) => code = code.replace(from, to));
 
     if (file === 'client.js') code = mangleGLCalls(code);
-
-    // TODO find __inline directives and inline their functions
 
     const uglifyResult = uglify(code, {
         toplevel: file !== 'shared.js',

@@ -79,10 +79,8 @@ let mat4_fromRotationTranslationScale = (q, v, s) => {
             v[2],
             1
     ];
-}
+};
 
-//__inline
 let Transform_create = () => ({ p: [0,0,0], r: [0,0,0,1], s: [1,1,1] });
 
-//__inline
 let Transform_toMatrix = self => mat4_fromRotationTranslationScale(self.r, self.p, self.s);

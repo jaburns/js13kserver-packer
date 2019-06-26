@@ -73,10 +73,43 @@ let gfx_loadBufferObjectsFromModelFile = (arrayBuffer, mode16) => {
     
     let tris = new Uint16Array(mode16 ? bytes.buffer.slice(triOffset) : bytes.subarray(triOffset));
 
-    return gfx_flatShadeAndloadBufferObjects(new Float32Array(verts), tris);
+    return gfx_loadBufferObjects(new Float32Array(verts), tris);
 };
 
 let gfx_loadModel = s =>
     fetch(s)
         .then(response => response.arrayBuffer())
         .then(buffer => gfx_loadBufferObjectsFromModelFile(buffer, s.endsWith('16')));
+
+let gfx_compileProgram = (vert, frag) => {
+    let vertShader = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(vertShader, vert);
+    gl.compileShader(vertShader);
+
+    if (__DEBUG) {
+        let vertLog = gl.getShaderInfoLog(vertShader);
+        if (vertLog === null || vertLog.length > 0) {
+            document.body.innerHTML = `<h1>Error in vertex shader:</h1><code>${vertLog.replace(/\n/g, '<br/>')}</code>`;
+            throw new Error('Error compiling shader');
+        }
+    }
+
+    let fragShader = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(fragShader, 'precision highp float;'+frag);
+    gl.compileShader(fragShader);
+
+    if (__DEBUG) {
+        let fragLog = gl.getShaderInfoLog(fragShader);
+        if (fragLog === null || fragLog.length > 0) {
+            document.body.innerHTML = `<h1>Error in fragment shader:</h1><code>${fragLog.replace(/\n/g, '<br/>')}</code>`;
+            throw new Error('Error compiling shader');
+        }
+    }
+
+    let prog = gl.createProgram();
+    gl.attachShader(prog, vertShader);
+    gl.attachShader(prog, fragShader);
+    gl.linkProgram(prog);
+    return prog;
+};
+

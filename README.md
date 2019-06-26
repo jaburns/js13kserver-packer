@@ -26,6 +26,7 @@ It's also possible to share code between shaders using `.inc` files. In a `.frag
 `//__include example.inc` directive at the top of the file to import the include file. Inside of the include file
 you must mark functions that you want to be visible to the importer with `//__export`. This is so that the minifier
 can be sure that the function name gets mangled to the same value at all of the import sites. Currently `.inc`
-files cannot import other `.inc` files.
+files can only import other `.inc` files *if the file with the import directive sorts later in an alphabetical list
+than the file it is importing*.
 
 #### Zip Packing

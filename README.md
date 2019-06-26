@@ -14,9 +14,9 @@ as small as possible, so a game submission can be developed without worrying abo
 #### Shader Bundling and Optimizations
 
 All of the GLSL shaders live in the `/shaders` folder.  Their contents can be accessed directly as strings
-inside of `client.js` by replacing the `.` in the filename with a `_`. For example, the shader `ship.frag`
-is available in the client code via the variable `ship_frag`. Shaders must have a `.frag`, `.vert` or `.inc`
-file extension.
+in the client code via the generated file `shaders.gen.js` by replacing the `.` in the filename with a `_`.
+For example, the shader `ship.frag` is available in the client code via the variable `ship_frag`. Shaders
+must have a `.frag`, `.vert` or `.inc` file extension.
 
 Inside the shader code, attributes, varyings, and uniforms must be prefixed with `a_`, `v_`, and `u_` respectively.
 This is because the minifier is lazy and just looks for identifiers with those prefixes to minify. These shader

@@ -18,7 +18,6 @@ let gfx_loadBufferObjects = (verts, tris, norms) => {
     return result;
 };
 
-/*
 let gfx_flatShadeAndloadBufferObjects = (verts, tris) => {
     let newVerts = [];
     let newTris = [];
@@ -49,10 +48,9 @@ let gfx_flatShadeAndloadBufferObjects = (verts, tris) => {
     return gfx_loadBufferObjects(
         new Float32Array(verts), 
         new Uint16Array(tris),
-        new Float32Array(norms)
+        new Float32Array(normals)
     );
 };
-*/
 
 let gfx_loadBufferObjectsFromModelFile = (arrayBuffer, mode16) => {
     let bytes = new Uint8Array(arrayBuffer);
@@ -75,7 +73,7 @@ let gfx_loadBufferObjectsFromModelFile = (arrayBuffer, mode16) => {
     
     let tris = new Uint16Array(mode16 ? bytes.buffer.slice(triOffset) : bytes.subarray(triOffset));
 
-    return gfx_loadBufferObjects(new Float32Array(verts), tris);
+    return gfx_flatShadeAndloadBufferObjects(new Float32Array(verts), tris);
 };
 
 let gfx_loadModel = s =>

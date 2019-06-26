@@ -141,6 +141,8 @@ const processFile = (replacements, file, code) => {
 
     if (file === 'client.js') code = mangleGLCalls(code);
 
+    // TODO find __inline directives and inline their functions
+
     const uglifyResult = uglify(code, {
         toplevel: file !== 'shared.js',
         compress: {

@@ -3,6 +3,21 @@
  * https://github.com/toji/gl-matrix
  */
 
+let vec3_minus = (a, b) =>// a.map((x,i)=>x-b[i]);
+                         [a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+                        // This might be smaller since it looks like multiply
+
+let vec3_cross = (a, b) => [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0]
+];
+
+let vec3_normalize = a => {
+    let len = a[0]*a[0] + a[1]*a[1] + a[2]*a[2];
+    return a.map(x=>x/len);
+};
+
 let quat_setAxisAngle = (axis, rad) => {
     rad *= .5;
     let s = Math.sin(rad);
@@ -66,6 +81,8 @@ let mat4_fromRotationTranslationScale = (q, v, s) => {
     ];
 }
 
+//__inline
 let Transform_create = () => ({ p: [0,0,0], r: [0,0,0,1], s: [1,1,1] });
 
+//__inline
 let Transform_toMatrix = self => mat4_fromRotationTranslationScale(self.r, self.p, self.s);

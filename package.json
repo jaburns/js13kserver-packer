@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "start": "node js13kserver/index.js",
-    "build": "node build --small",
+    "pack": "node build --small",
     "fast": "node build",
     "bash": "bash"
   },

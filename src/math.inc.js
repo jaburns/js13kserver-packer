@@ -57,22 +57,19 @@ let mat4_multiply = (a, b) => [
 
 let mat4_fromRotationTranslationScale = (q, v, s) => {
     let x = q[0], y = q[1], z = q[2], w = q[3];
-    let x2 = x + x;
-    let y2 = y + y;
-    let z2 = z + z;
 
     return [
-        (1 - (y*y2 + z*z2)) * s[0],
-        (x*y2 + w*z2) * s[0],
-        (x*z2 - w*y2) * s[0],
+        (1 - (y*y*2 + z*z*2)) * s[0],
+        (x*y*2 + w*z*2) * s[0],
+        (x*z*2 - w*y*2) * s[0],
         0,
-            (x*y2 - w*z2) * s[1],
-            (1 - (x*x2 + z*z2)) * s[1],
-            (y*z2 + w*x2) * s[1],
+            (x*y*2 - w*z*2) * s[1],
+            (1 - (x*x*2 + z*z*2)) * s[1],
+            (y*z*2 + w*x*2) * s[1],
             0,
-        (x*z2 + w*y2) * s[2],
-        (y*z2 - w*x2) * s[2],
-        (1 - (x*x2 + y*y2)) * s[2],
+        (x*z*2 + w*y*2) * s[2],
+        (y*z*2 - w*x*2) * s[2],
+        (1 - (x*x*2 + y*y*2)) * s[2],
         0,
             v[0],
             v[1],

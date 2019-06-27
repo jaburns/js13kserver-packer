@@ -14,8 +14,9 @@ let socket = io()
   , lastState
   , state
   , shaderProg = gfx_compileProgram(ship_vert, ship_frag)
-  , fxShader = gfx_compileProgram(screen_vert, screen_frag)
-  , bufferRenderer = gfx_createBufferRenderer()
+  , fxShader = gfx_compileProgram(fullquad_vert, screen_frag)
+  , sampleTex = gfx_drawShaderToTexture(gfx_compileProgram(fullquad_vert, texture_frag), 1024)
+  , renderBuffer = gfx_createBufferRenderer()
   , frameBuffer = gfx_createFrameBufferTexture()
   , cubeModel
   , aspectRatio
@@ -75,7 +76,7 @@ let render = state => {
     });
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    bufferRenderer.d(fxShader, frameBuffer.t);
+    renderBuffer(fxShader, sampleTex); // // frameBuffer.t);
 };
 
 let update = () => {

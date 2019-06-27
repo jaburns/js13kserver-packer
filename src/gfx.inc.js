@@ -124,24 +124,23 @@ let gfx_createBufferRenderer = () => {
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,1,-1,-1,1,-1,1,-1,1,1,-1,1]), gl.STATIC_DRAW);
 
-    return {
-        d(shader, texture) { // draw()
-            gl.useProgram(shader);
+    return (shader, texture) => {
+        gl.useProgram(shader);
 
+        if (texture) {
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, texture);
-            const loc_tex = gl.getUniformLocation(shader, "u_tex");
-            gl.uniform1i(loc_tex, 0);
-
-            gl.uniform2f(gl.getUniformLocation(shader, 'u_resolution'), C.width, C.height);
-
-            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-            const posLoc = gl.getAttribLocation(shader, "a_position");
-            gl.enableVertexAttribArray(posLoc);
-            gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
-
-            gl.drawArrays(gl.TRIANGLES, 0, 6);
+            gl.uniform1i(gl.getUniformLocation(shader, "u_tex"), 0);
         }
+
+        gl.uniform2f(gl.getUniformLocation(shader, 'u_resolution'), C.width, C.height);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        const posLoc = gl.getAttribLocation(shader, "a_position");
+        gl.enableVertexAttribArray(posLoc);
+        gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
     };
 };
 
@@ -166,7 +165,6 @@ let gfx_createFrameBufferTexture = () => {
 
     result.r(1,1);
 
-    // TODO do we really need all this shit?
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);  
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -175,4 +173,13 @@ let gfx_createFrameBufferTexture = () => {
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depth);
 
     return result;
+};
+
+let gfx_drawShaderToTexture = (shader, widthHeight) => {
+    let frameBuffer = gfx_createFrameBufferTexture();
+    frameBuffer.r(widthHeight, widthHeight);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer.f);
+    gl.viewport(0, 0, widthHeight, widthHeight);
+    gfx_createBufferRenderer()(shader);
+    return frameBuffer.t;
 };

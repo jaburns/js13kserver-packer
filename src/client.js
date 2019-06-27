@@ -2,18 +2,21 @@ let gl = C.getContext('webgl');
 
 //__insertGLOptimize
 
-//__inlineFile soundbox-player.inc.js
-//__inlineFile shaders.gen.js
-//__inlineFile math.inc.js
-//__inlineFile gfx.inc.js
-//__inlineFile state.inc.js
-//__inlineFile song.inc.js
+//__include soundbox-player.inc.js
+//__include shaders.gen.js
+//__include math.inc.js
+//__include gfx.inc.js
+//__include state.inc.js
+//__include song.inc.js
 
 let socket = io()
   , lastReceiveState
   , lastState
   , state
   , shaderProg = gfx_compileProgram(ship_vert, ship_frag)
+  , fxShader = gfx_compileProgram(screen_vert, screen_frag)
+  , bufferRenderer = gfx_createBufferRenderer()
+  , frameBuffer = gfx_createFrameBufferTexture()
   , cubeModel
   , aspectRatio
   , soundyBoi
@@ -21,6 +24,7 @@ let socket = io()
   , resizeFunc = () => {
         C.width = innerWidth;
         C.height = innerHeight;
+        frameBuffer.r(C.width, C.height);
         gl.viewport(0, 0, C.width, C.height);
         aspectRatio = C.width / C.height;
     };
@@ -43,7 +47,9 @@ gl.clearColor(0, 0, 0, 1);
 gl.enable(gl.DEPTH_TEST);
 
 let render = state => {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer.f);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
     gl.useProgram(shaderProg);
 
     state.forEach((player, i) => {
@@ -54,13 +60,9 @@ let render = state => {
         transform.p[2] = -3;
 
         let projectionMatrix = mat4_perspective(aspectRatio, .01, 100);
-
-        let viewMatrix = [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]; // something something camera
-
+        let viewMatrix = [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
         let modelMatrix = Transform_toMatrix(transform);
-
         let mvp = mat4_multiply(projectionMatrix, mat4_multiply(viewMatrix, modelMatrix));
-
         gl.uniformMatrix4fv(gl.getUniformLocation(shaderProg, 'u_mvp'), false, mvp);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, cubeModel.v);
@@ -70,8 +72,10 @@ let render = state => {
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeModel.i);
         gl.drawElements(gl.TRIANGLES, cubeModel.t, gl.UNSIGNED_SHORT, 0);
-
     });
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    bufferRenderer.d(fxShader, frameBuffer.t);
 };
 
 let update = () => {

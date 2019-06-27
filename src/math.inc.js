@@ -3,9 +3,7 @@
  * https://github.com/toji/gl-matrix
  */
 
-let vec3_minus = (a, b) =>// a.map((x,i)=>x-b[i]);
-                         [a[0]-b[0],a[1]-b[1],a[2]-b[2]];
-                        // This might be smaller since it looks like multiply
+let vec3_minus = (a, b) => a.map((x,i)=>x-b[i]);
 
 let vec3_cross = (a, b) => [
     a[1] * b[2] - a[2] * b[1],

@@ -9,9 +9,9 @@ const SHADER_MIN_TOOL = process.platform === 'win32' ? 'tools\\shader_minifier.e
 const ADVZIP_TOOL = process.platform === 'win32' ? '..\\..\\tools\\advzip.exe' : '../../tools/advzip.osx';
 const MINIFY = process.argv[2] === '--small';
 
-let shaderMinNames = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+let shaderMinNames = 'abcdefghijklmnopqrstuvwxyz'.split('').map(x => 'z' + x);
 
-const MAGIC_HASH_OFFSET = 2;
+const MAGIC_HASH_OFFSET = 3;
 
 const extractGLSLFunctionName = proto =>
     proto.substring(proto.indexOf(' ') + 1, proto.indexOf('('));
@@ -72,22 +72,20 @@ const buildShaderIncludeFile = () => {
 
     includedFuncs = _.uniq(includedFuncs);
 
+    let lines = fileContents.split('\n');
+
     _.zip(includedFuncs, shaderMinNames.splice(0, includedFuncs.length)).forEach(([from, to]) => {
-        fileContents = fileContents.replace(new RegExp(from, 'g'), to);
+        lines = lines.map(line =>
+            line.trim().startsWith('"')
+                ? line.replace(new RegExp(from, 'g'), to)
+                : line);
     });
+
+    fileContents = lines.join('\n');
 
     includeHeaderMappings.forEach(({file, incs}) => {
         fileContents = fileContents.replace(`var ${file} =`, `var ${file} = ${incs.join('+')} +`);
     });
-
-//  fileContents = `
-//      let shader_uniform = "uniform",
-//          shader_attribute = "attribute",
-//          shader_varying = "varying";`
-//      + fileContents.replace(/"/g, '`')
-//          .replace(/uniform/g, '${shader_uniform}')
-//          .replace(/attribute/g, '${shader_attribute}')
-//          .replace(/varying/g, '${shader_varying}');
 
     return fileContents;
 };
@@ -134,12 +132,12 @@ const findExternalFileReplacementsAndRenameFiles = () => {
     );
 };
 
-const replaceInlineDirectivesWithInlinedFiles = code => {
+const replaceIncludeDirectivesWithInlinedFiles = code => {
     const lines = code.split('\n');
     const result = [];
 
     lines.forEach(line => {
-        const label = '//__inlineFile';
+        const label = '//__include';
         const index = line.indexOf(label);
         if (index >= 0) {
             const filename = line.substr(index + label.length).trim();
@@ -253,9 +251,9 @@ const main = () => {
     const allShaderCode = buildShaderIncludeFile();
     fs.writeFileSync('./src/shaders.gen.js', allShaderCode);
 
-    const clientCode = replaceInlineDirectivesWithInlinedFiles(fs.readFileSync('./src/client.js', 'utf8'));
-    const sharedCode = replaceInlineDirectivesWithInlinedFiles(fs.readFileSync('./src/shared.js', 'utf8'));
-    const serverCode = replaceInlineDirectivesWithInlinedFiles(fs.readFileSync('./src/server.js', 'utf8'));
+    const clientCode = replaceIncludeDirectivesWithInlinedFiles(fs.readFileSync('./src/client.js', 'utf8'));
+    const sharedCode = replaceIncludeDirectivesWithInlinedFiles(fs.readFileSync('./src/shared.js', 'utf8'));
+    const serverCode = replaceIncludeDirectivesWithInlinedFiles(fs.readFileSync('./src/server.js', 'utf8'));
 
     const replacements = MINIFY ? _.flatten([
         findShaderInternalReplacements(allShaderCode),

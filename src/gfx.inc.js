@@ -81,6 +81,18 @@ let gfx_loadModel = s =>
         .then(response => response.arrayBuffer())
         .then(buffer => gfx_loadBufferObjectsFromModelFile(buffer, s.endsWith('16')));
 
+if (__DEBUG) {
+    var showHTMLShaderError = (kind, log, code) => {
+        let codeWithNumbers = code.split('\n').map((x,i) => `${i+2}:  ${x}`).join('<br />');
+
+        document.body.innerHTML = `<h1>Error in ${kind} shader:</h1>
+            <code>${log.replace(/\n/g, '<br/>')}</code><br><br>
+            <code>${codeWithNumbers}</code>`;
+
+        throw new Error('Error compiling shader');
+    };
+}
+
 let gfx_compileProgram = (vert, frag) => {
     let vertShader = gl.createShader(gl.VERTEX_SHADER);
     gl.shaderSource(vertShader, vert);
@@ -88,10 +100,7 @@ let gfx_compileProgram = (vert, frag) => {
 
     if (__DEBUG) {
         let vertLog = gl.getShaderInfoLog(vertShader);
-        if (vertLog === null || vertLog.length > 0) {
-            document.body.innerHTML = `<h1>Error in vertex shader:</h1><code>${vertLog.replace(/\n/g, '<br/>')}</code>`;
-            throw new Error('Error compiling shader');
-        }
+        if (vertLog === null || vertLog.length > 0) showHTMLShaderError('vertex', vertLog, vert);
     }
 
     let fragShader = gl.createShader(gl.FRAGMENT_SHADER);
@@ -100,10 +109,7 @@ let gfx_compileProgram = (vert, frag) => {
 
     if (__DEBUG) {
         let fragLog = gl.getShaderInfoLog(fragShader);
-        if (fragLog === null || fragLog.length > 0) {
-            document.body.innerHTML = `<h1>Error in fragment shader:</h1><code>${fragLog.replace(/\n/g, '<br/>')}</code>`;
-            throw new Error('Error compiling shader');
-        }
+        if (fragLog === null || fragLog.length > 0) showHTMLShaderError('fragment', fragLog, frag);
     }
 
     let prog = gl.createProgram();
@@ -113,3 +119,60 @@ let gfx_compileProgram = (vert, frag) => {
     return prog;
 };
 
+let gfx_createBufferRenderer = () => {
+    let vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,1,-1,-1,1,-1,1,-1,1,1,-1,1]), gl.STATIC_DRAW);
+
+    return {
+        d(shader, texture) { // draw()
+            gl.useProgram(shader);
+
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            const loc_tex = gl.getUniformLocation(shader, "u_tex");
+            gl.uniform1i(loc_tex, 0);
+
+            gl.uniform2f(gl.getUniformLocation(shader, 'u_resolution'), C.width, C.height);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+            const posLoc = gl.getAttribLocation(shader, "a_position");
+            gl.enableVertexAttribArray(posLoc);
+            gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+        }
+    };
+};
+
+let gfx_createFrameBufferTexture = () => {
+    let framebuffer = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+        
+    let texture = gl.createTexture();
+    let depth = gl.createRenderbuffer();
+
+    let result = {
+        f: framebuffer,
+        t: texture,
+        r(width, height) { // resize()
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, width, height, 0, gl.RGB, gl.UNSIGNED_BYTE, null);
+
+            gl.bindRenderbuffer(gl.RENDERBUFFER, depth);
+            gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
+        }
+    };
+
+    result.r(1,1);
+
+    // TODO do we really need all this shit?
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);  
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0); 
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depth);
+
+    return result;
+};

@@ -1,4 +1,4 @@
-//__inlineFile state.inc.js
+//__include state.inc.js
 
 let players = [];
 

@@ -1,8 +1,8 @@
 ### js13k-template
 
-This is a toolchain for building a multiplayer WebGL game in the js13kgames competition server category.
+This is a toolchain for building a multiplayer WebGL game for the js13kgames competition server category.
 The goal of this project is to have a system that does lots of little things to make the final bundle
-as small as possible, so a game submission can be developed without worrying about tiny optimizations.
+as small as possible so that a game submission can be developed without worrying about tiny optimizations.
 
 #### JavaScript Bundling and Optimizations
 

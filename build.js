@@ -43,9 +43,9 @@ const buildShaderIncludeFile = () => {
 
     shell.find('shaders')
         .map(x => x)
-        .sort((a, b) => a.endsWith('inc') ? -1 : b.endsWith('inc') ? 1 : 0)
+        .sort((a, b) => a.endsWith('glsl') ? -1 : b.endsWith('glsl') ? 1 : 0)
         .forEach(x => {
-            if (!(x.endsWith('.frag') || x.endsWith('.vert') || x.endsWith('.inc'))) return;
+            if (!(x.endsWith('.frag') || x.endsWith('.vert') || x.endsWith('.glsl'))) return;
 
             const rawFile = fs.readFileSync(x, 'utf8');
             const varFileName = x.substr(x.indexOf('/')+1).replace('.', '_');

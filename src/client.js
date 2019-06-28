@@ -15,7 +15,7 @@ let socket = io()
   , state
   , shaderProg = gfx_compileProgram(ship_vert, ship_frag)
   , fxShader = gfx_compileProgram(fullquad_vert, screen_frag)
-  , sampleTex = gfx_drawShaderToTexture(gfx_compileProgram(fullquad_vert, texture_frag), 1024)
+//, sampleTex = gfx_drawShaderToTexture(gfx_compileProgram(fullquad_vert, texture_frag), 1024)
   , renderBuffer = gfx_createBufferRenderer()
   , frameBuffer = gfx_createFrameBufferTexture()
   , cubeModel
@@ -76,7 +76,8 @@ let render = state => {
     });
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    renderBuffer(fxShader, sampleTex); // // frameBuffer.t);
+    renderBuffer(fxShader, frameBuffer.t);
+//  renderBuffer(fxShader, sampleTex);
 };
 
 let update = () => {

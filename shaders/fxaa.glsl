@@ -1,3 +1,6 @@
+/**
+ * https://github.com/mattdesl/glsl-fxaa
+ */
 
 vec4 fxaa_work(sampler2D tex, vec2 fragCoord, vec2 resolution,
             vec2 v_rgbNW, vec2 v_rgbNE, 

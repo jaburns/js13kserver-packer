@@ -1,4 +1,4 @@
-//__include simplexNoise.inc
+//__include simplexNoise.glsl
 
 varying vec2 v_uv;
 

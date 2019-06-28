@@ -1,4 +1,4 @@
-//__include fxaa.inc
+//__include fxaa.glsl
 
 uniform vec2 u_resolution;
 uniform sampler2D u_tex;

@@ -34,7 +34,7 @@ let sbPlay = (song, cb) => {
     //--------------------------------------------------------------------------
 
         // Define the song
-        var mSong = song;
+        var mSong = song,
 
         // Init iteration state variables
         mLastRow = mSong[3],
@@ -334,7 +334,7 @@ let sbPlay = (song, cb) => {
         } else {
             var audio = document.createElement("audio");
             var onLoaded = _ => {
-                if (cb) cb({play() {audio.pause(); audio.currentTime = 0; audio.play()}});
+                if (cb) cb(()=>{audio.pause(); audio.currentTime = 0; audio.play()});
                 else audio.play().catch(_=>setTimeout(onLoaded,0));
             };
             audio.loop = !cb;

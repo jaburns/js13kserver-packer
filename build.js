@@ -98,7 +98,7 @@ const buildShaderIncludeFile = () => {
                 shell.exec(`${SHADER_MIN_TOOL} --preserve-externals ${incFuncsArg} --format js ${x} -o tmp.js`, {silent: true});
                 fileContents += fs.readFileSync('tmp.js', 'utf8');
             } else {
-                fileContents += `var ${varFileName} = \`${rawFile}\`;\n\n`;
+                fileContents += `let ${varFileName} = \`${rawFile}\`;\n\n`;
             }
         });
 
@@ -109,16 +109,23 @@ const buildShaderIncludeFile = () => {
     let lines = fileContents.split('\n');
 
     _.zip(includedFuncs, shaderMinNames.splice(0, includedFuncs.length)).forEach(([from, to]) => {
-        lines = lines.map(line =>
-            line.trim().startsWith('"')
-                ? line.replace(new RegExp(from, 'g'), to)
-                : line);
+        lines = lines.map(line => {
+            const trimLine = line.trim();
+
+            if (trimLine.startsWith('"'))
+                return line.replace(new RegExp(from, 'g'), to);
+
+            if (trimLine.startsWith('var '))
+                return 'let ' + trimLine.substr(4);
+
+            return line;
+        });
     });
 
     fileContents = lines.join('\n');
 
     includeHeaderMappings.forEach(({file, incs}) => {
-        fileContents = fileContents.replace(`var ${file} =`, `var ${file} = ${incs.join('+')} +`);
+        fileContents = fileContents.replace(`let ${file} =`, `let ${file} = ${incs.join('+')} +`);
     });
 
     return fileContents;

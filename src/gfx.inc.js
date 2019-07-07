@@ -136,7 +136,7 @@ let gfx_createBufferRenderer = () => {
         gl.uniform2f(gl.getUniformLocation(shader, 'u_resolution'), C.width, C.height);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        const posLoc = gl.getAttribLocation(shader, "a_position");
+        let posLoc = gl.getAttribLocation(shader, "a_position");
         gl.enableVertexAttribArray(posLoc);
         gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
 

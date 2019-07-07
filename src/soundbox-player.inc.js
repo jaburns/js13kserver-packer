@@ -34,7 +34,7 @@ let sbPlay = (song, cb) => {
     //--------------------------------------------------------------------------
 
         // Define the song
-        var mSong = song,
+        let mSong = song,
 
         // Init iteration state variables
         mLastRow = mSong[3],
@@ -52,31 +52,31 @@ let sbPlay = (song, cb) => {
     //--------------------------------------------------------------------------
 
     // Oscillators
-    var osc_sin = (value) => {
+    let osc_sin = (value) => {
         return Math.sin(value * 6.283184);
     };
 
-    var osc_saw = (value) => {
+    let osc_saw = (value) => {
         return 2 * (value % 1) - 1;
     };
 
-    var osc_square = (value) => {
+    let osc_square = (value) => {
         return (value % 1) < 0.5 ? 1 : -1;
     };
 
-    var osc_tri = (value) => {
-        var v2 = (value % 1) * 4;
+    let osc_tri = (value) => {
+        let v2 = (value % 1) * 4;
         if(v2 < 2) return v2 - 1;
         return 3 - v2;
     };
 
-    var getnotefreq = (n) => {
+    let getnotefreq = (n) => {
         // 174.61.. / 44100 = 0.003959503758 (F3)
         return 0.003959503758 * Math.pow(2, (n - 128) / 12);
     };
 
-    var createNote = (instr, n, rowLen) => {
-        var osc1 = mOscillators[instr[0][0]],
+    let createNote = (instr, n, rowLen) => {
+        let osc1 = mOscillators[instr[0][0]],
             o1vol = instr[0][1],
             o1xenv = instr[0][3],
             osc2 = mOscillators[instr[0][4]],
@@ -90,13 +90,13 @@ let sbPlay = (song, cb) => {
             arp = instr[0][13],
             arpInterval = rowLen * Math.pow(2, 2 - instr[0][14]);
 
-        var noteBuf = new Int32Array(attack + sustain + release);
+        let noteBuf = new Int32Array(attack + sustain + release);
 
         // Re-trig oscillators
-        var c1 = 0, c2 = 0;
+        let c1 = 0, c2 = 0;
 
         // Local variables.
-        var j, j2, e, t, rsample, o1t, o2t;
+        let j, j2, e, t, rsample, o1t, o2t;
 
         // Generate one note (attack + sustain + release)
         for (j = 0, j2 = 0; j < attack + sustain + release; j++, j2++) {
@@ -152,7 +152,7 @@ let sbPlay = (song, cb) => {
     //--------------------------------------------------------------------------
 
     // Array of oscillator functions
-    var mOscillators = [
+    let mOscillators = [
         osc_sin,
         osc_square,
         osc_saw,
@@ -166,23 +166,23 @@ let sbPlay = (song, cb) => {
     //--------------------------------------------------------------------------
 
     // Generate audio data for a single track
-    var generate = () => {
+    let generate = () => {
         // Local variables
-        var i, j, b, p, row, col, n, cp,
+        let i, j, b, p, row, col, n, cp,
             k, t, lfor, e, x, rsample, rowStartSample, f, da;
 
         // Put performance critical items in local variables
-        var chnBuf = new Int32Array(mNumWords),
+        let chnBuf = new Int32Array(mNumWords),
             instr = mSong[0][mCurrentCol],
             rowLen = mSong[1],
             patternLen = mSong[2];
 
         // Clear effect state
-        var low = 0, band = 0, high;
-        var lsample, filterActive = false;
+        let low = 0, band = 0, high;
+        let lsample, filterActive = false;
 
         // Clear note cache.
-        var noteCache = [];
+        let noteCache = [];
 
          // Patterns
          for (p = 0; p <= mLastRow; ++p) {
@@ -191,7 +191,7 @@ let sbPlay = (song, cb) => {
             // Pattern rows
             for (row = 0; row < patternLen; ++row) {
                 // Execute effect command.
-                var cmdNo = cp ? instr[2][cp - 1][1][row] : 0;
+                let cmdNo = cp ? instr[2][cp - 1][1][row] : 0;
                 if (cmdNo) {
                     instr[0][cmdNo - 1] = instr[2][cp - 1][1][row + patternLen] || 0;
 
@@ -202,7 +202,7 @@ let sbPlay = (song, cb) => {
                 }
 
                 // Put performance critical instrument properties in local variables
-                var oscLFO = mOscillators[instr[0][15]],
+                let oscLFO = mOscillators[instr[0][15]],
                     lfoAmt = instr[0][16] / 512,
                     lfoFreq = Math.pow(2, instr[0][17] - 9) / rowLen,
                     fxLFO = instr[0][18],
@@ -228,7 +228,7 @@ let sbPlay = (song, cb) => {
                         }
 
                         // Copy note from the note cache
-                        var noteBuf = noteCache[n];
+                        let noteBuf = noteCache[n];
                         for (j = 0, i = rowStartSample * 2; j < noteBuf.length; j++, i += 2) {
                           chnBuf[i] += noteBuf[j];
                         }
@@ -301,12 +301,12 @@ let sbPlay = (song, cb) => {
     };
 
     // Create a WAVE formatted Uint8Array from the generated audio data
-    var createWave = () => {
+    let createWave = () => {
         // Create WAVE header
-        var headerLen = 44;
-        var l1 = headerLen + mNumWords * 2 - 8;
-        var l2 = l1 - 36;
-        var wave = new Uint8Array(headerLen + mNumWords * 2);
+        let headerLen = 44;
+        let l1 = headerLen + mNumWords * 2 - 8;
+        let l2 = l1 - 36;
+        let wave = new Uint8Array(headerLen + mNumWords * 2);
         wave.set(
             [82,73,70,70,
              l1 & 255,(l1 >> 8) & 255,(l1 >> 16) & 255,(l1 >> 24) & 255,
@@ -316,9 +316,9 @@ let sbPlay = (song, cb) => {
         );
 
         // Append actual wave data
-        for (var i = 0, idx = headerLen; i < mNumWords; ++i) {
+        for (let i = 0, idx = headerLen; i < mNumWords; ++i) {
             // Note: We clamp here
-            var y = mMixBuf[i];
+            let y = mMixBuf[i];
             y = y < -32767 ? -32767 : (y > 32767 ? 32767 : y);
             wave[idx++] = y & 255;
             wave[idx++] = (y >> 8) & 255;
@@ -328,12 +328,12 @@ let sbPlay = (song, cb) => {
         return wave;
     };
 
-    var loadLoop = () => {
+    let loadLoop = () => {
         if (generate() < 1) {
             setTimeout(loadLoop, 0);
         } else {
-            var audio = document.createElement("audio");
-            var onLoaded = _ => {
+            let audio = document.createElement("audio");
+            let onLoaded = _ => {
                 if (cb) cb(()=>{audio.pause(); audio.currentTime = 0; audio.play()});
                 else audio.play().catch(_=>setTimeout(onLoaded,0));
             };

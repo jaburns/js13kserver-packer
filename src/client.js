@@ -95,4 +95,4 @@ sbPlay(exampleSFX, x => soundyBoi = x);
 
 sbPlay(song);
 
-onclick = () => { soundyBoi.play(); };
+onclick = () => soundyBoi();

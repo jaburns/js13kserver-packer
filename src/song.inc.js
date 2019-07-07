@@ -1,5 +1,4 @@
-
-    var song = {
+var song = __includeSongData({
       songData: [
         { // Instrument 0
           i: [
@@ -370,4 +369,5 @@
       patternLen: 32,  // Rows per pattern
       endPattern: 26,  // End pattern
       numChannels: 8  // Number of channels
-    };
+    }
+);

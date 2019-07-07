@@ -34,14 +34,14 @@ let sbPlay = (song, cb) => {
     //--------------------------------------------------------------------------
 
         // Define the song
-        var mSong = song,
+        var mSong = song;
 
         // Init iteration state variables
-        mLastRow = song.endPattern,
+        mLastRow = mSong[3],
         mCurrentCol = 0,
 
         // Prepare song info
-        mNumWords =  song.rowLen * song.patternLen * (mLastRow + 1) * 2,
+        mNumWords =  mSong[1] * mSong[2] * (mLastRow + 1) * 2,
 
         // Create work buffer (initially cleared)
         mMixBuf = new Int32Array(mNumWords);
@@ -76,19 +76,19 @@ let sbPlay = (song, cb) => {
     };
 
     var createNote = (instr, n, rowLen) => {
-        var osc1 = mOscillators[instr.i[0]],
-            o1vol = instr.i[1],
-            o1xenv = instr.i[3],
-            osc2 = mOscillators[instr.i[4]],
-            o2vol = instr.i[5],
-            o2xenv = instr.i[8],
-            noiseVol = instr.i[9],
-            attack = instr.i[10] * instr.i[10] * 4,
-            sustain = instr.i[11] * instr.i[11] * 4,
-            release = instr.i[12] * instr.i[12] * 4,
+        var osc1 = mOscillators[instr[0][0]],
+            o1vol = instr[0][1],
+            o1xenv = instr[0][3],
+            osc2 = mOscillators[instr[0][4]],
+            o2vol = instr[0][5],
+            o2xenv = instr[0][8],
+            noiseVol = instr[0][9],
+            attack = instr[0][10] * instr[0][10] * 4,
+            sustain = instr[0][11] * instr[0][11] * 4,
+            release = instr[0][12] * instr[0][12] * 4,
             releaseInv = 1 / release,
-            arp = instr.i[13],
-            arpInterval = rowLen * Math.pow(2, 2 - instr.i[14]);
+            arp = instr[0][13],
+            arpInterval = rowLen * Math.pow(2, 2 - instr[0][14]);
 
         var noteBuf = new Int32Array(attack + sustain + release);
 
@@ -106,8 +106,8 @@ let sbPlay = (song, cb) => {
                 j2 -= arpInterval;
 
                 // Calculate note frequencies for the oscillators
-                o1t = getnotefreq(n + (arp & 15) + instr.i[2] - 128);
-                o2t = getnotefreq(n + (arp & 15) + instr.i[6] - 128) * (1 + 0.0008 * instr.i[7]);
+                o1t = getnotefreq(n + (arp & 15) + instr[0][2] - 128);
+                o2t = getnotefreq(n + (arp & 15) + instr[0][6] - 128) * (1 + 0.0008 * instr[0][7]);
             }
 
             // Envelope
@@ -173,9 +173,9 @@ let sbPlay = (song, cb) => {
 
         // Put performance critical items in local variables
         var chnBuf = new Int32Array(mNumWords),
-            instr = mSong.songData[mCurrentCol],
-            rowLen = mSong.rowLen,
-            patternLen = mSong.patternLen;
+            instr = mSong[0][mCurrentCol],
+            rowLen = mSong[1],
+            patternLen = mSong[2];
 
         // Clear effect state
         var low = 0, band = 0, high;
@@ -186,14 +186,14 @@ let sbPlay = (song, cb) => {
 
          // Patterns
          for (p = 0; p <= mLastRow; ++p) {
-            cp = instr.p[p];
+            cp = instr[1][p];
 
             // Pattern rows
             for (row = 0; row < patternLen; ++row) {
                 // Execute effect command.
-                var cmdNo = cp ? instr.c[cp - 1].f[row] : 0;
+                var cmdNo = cp ? instr[2][cp - 1][1][row] : 0;
                 if (cmdNo) {
-                    instr.i[cmdNo - 1] = instr.c[cp - 1].f[row + patternLen] || 0;
+                    instr[0][cmdNo - 1] = instr[2][cp - 1][1][row + patternLen] || 0;
 
                     // Clear the note cache since the instrument has changed.
                     if (cmdNo < 16) {
@@ -202,26 +202,26 @@ let sbPlay = (song, cb) => {
                 }
 
                 // Put performance critical instrument properties in local variables
-                var oscLFO = mOscillators[instr.i[15]],
-                    lfoAmt = instr.i[16] / 512,
-                    lfoFreq = Math.pow(2, instr.i[17] - 9) / rowLen,
-                    fxLFO = instr.i[18],
-                    fxFilter = instr.i[19],
-                    fxFreq = instr.i[20] * 43.23529 * 3.141592 / 44100,
-                    q = 1 - instr.i[21] / 255,
-                    dist = instr.i[22] * 1e-5,
-                    drive = instr.i[23] / 32,
-                    panAmt = instr.i[24] / 512,
-                    panFreq = 6.283184 * Math.pow(2, instr.i[25] - 9) / rowLen,
-                    dlyAmt = instr.i[26] / 255,
-                    dly = instr.i[27] * rowLen & ~1;  // Must be an even number
+                var oscLFO = mOscillators[instr[0][15]],
+                    lfoAmt = instr[0][16] / 512,
+                    lfoFreq = Math.pow(2, instr[0][17] - 9) / rowLen,
+                    fxLFO = instr[0][18],
+                    fxFilter = instr[0][19],
+                    fxFreq = instr[0][20] * 43.23529 * 3.141592 / 44100,
+                    q = 1 - instr[0][21] / 255,
+                    dist = instr[0][22] * 1e-5,
+                    drive = instr[0][23] / 32,
+                    panAmt = instr[0][24] / 512,
+                    panFreq = 6.283184 * Math.pow(2, instr[0][25] - 9) / rowLen,
+                    dlyAmt = instr[0][26] / 255,
+                    dly = instr[0][27] * rowLen & ~1;  // Must be an even number
 
                 // Calculate start sample number for this row in the pattern
                 rowStartSample = (p * patternLen + row) * rowLen;
 
                 // Generate notes for this pattern row
                 for (col = 0; col < 4; ++col) {
-                    n = cp ? instr.c[cp - 1].n[row + col * patternLen] : 0;
+                    n = cp ? instr[2][cp - 1][0][row + col * patternLen] : 0;
                     if (n) {
                         if (!noteCache[n]) {
                             noteCache[n] = createNote(instr, n, rowLen);
@@ -297,7 +297,7 @@ let sbPlay = (song, cb) => {
 
         // Next iteration. Return progress (1.0 == done!).
         mCurrentCol++;
-        return mCurrentCol / mSong.numChannels;
+        return mCurrentCol / mSong[4];
     };
 
     // Create a WAVE formatted Uint8Array from the generated audio data

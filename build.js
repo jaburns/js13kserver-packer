@@ -30,6 +30,40 @@ const findExportedShaderIncludeFuncs = code => {
     return result;
 };
 
+const convertSong = song => [
+    song.songData.map(x => [
+        x.i,
+        x.p,
+        x.c.map(y => [
+            y.n,
+            y.f
+        ]),
+    ]),
+    song.rowLen,
+    song.patternLen,
+    song.endPattern,
+    song.numChannels
+];
+
+const replaceIncludeSongCallWithConvertedSong = originalSongData =>
+    JSON.stringify(convertSong(eval(`x=${originalSongData};x`))).replace(/null/g, '');
+
+const convertSongDataFormat = code => {
+    const funcName = '__includeSongData(';
+
+    while (1) {
+        const funcLoc = code.indexOf(funcName);
+        if (funcLoc < 0) return code;
+
+        const endLoc = code.indexOf(')', funcLoc);
+        code = code.substr(0, funcLoc)
+            + replaceIncludeSongCallWithConvertedSong(code.substr(funcLoc + funcName.length, endLoc - funcLoc - funcName.length))
+            + code.substr(endLoc + 1);
+    }
+
+    return code;
+};
+
 const findShaderIncludes = code => code
     .split('\n')
     .map(x => x.trim())
@@ -202,7 +236,9 @@ const processFile = (replacements, file, code) => {
 
     replacements.forEach(([from, to]) => code = code.replace(from, to));
 
-    if (file === 'client.js') code = mangleGLCalls(code);
+    if (file === 'client.js') {
+        code = convertSongDataFormat(mangleGLCalls(code));
+    }
 
     const uglifyResult = uglify(code, {
         toplevel: file !== 'shared.js',

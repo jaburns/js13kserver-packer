@@ -22,7 +22,6 @@ vec4 fxaa(sampler2D tex, vec2 fragCoord, vec2 resolution)
     float FXAA_REDUCE_MUL =  (1.0 / 8.0);
     float FXAA_SPAN_MAX   =  8.0;
 
-    vec2 inverseVP = vec2(1.0 / resolution.x, 1.0 / resolution.y);
     vec3 rgbNW = texture2D(tex, v_rgbNW).xyz;
     vec3 rgbNE = texture2D(tex, v_rgbNE).xyz;
     vec3 rgbSW = texture2D(tex, v_rgbSW).xyz;

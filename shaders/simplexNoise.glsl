@@ -12,6 +12,9 @@ vec4 taylorInvSqrt(vec4 r) {
 
 //__export
 float simplexNoise(vec3 v) { 
+  vec2 C = vec2(1.0/6.0, 1.0/3.0) ;
+  vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+
 // First corner
   vec3 i  = floor(v + dot(v, C.yyy) );
   vec3 x0 =   v - i + dot(i, C.xxx) ;

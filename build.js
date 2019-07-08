@@ -238,7 +238,7 @@ const processFile = (replacements, file, code) => {
                 code = `let ${k} = ${constants[k]};\n` + code;
             }
         }
-        return code;
+        return convertSongDataFormat(code);
     }
 
     replacements.forEach(([from, to]) => code = code.replace(from, to));

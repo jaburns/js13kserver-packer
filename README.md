@@ -7,7 +7,8 @@ as small as possible so that a game submission can be developed without worrying
 The main build script acts as a front-end to UglifyJS. It performs a bunch of domain-specific optimizations, including
 running shaders through a minifier, and then feeds the minifier-friendly result to UglifyJS. The final results are
 copied in to the public folder of the test server, which is included as a submodule to this repository, and then
-ADVZIP is used to create the bundle intended for submission.
+ADVZIP is used to create the bundle intended for submission. Before invoking ADVZIP though, the build script will rename
+all external resources to single-letter file names, and find/replace the original file names in the JS source.
 
 #### JavaScript Bundling and Optimizations
 
@@ -15,27 +16,27 @@ There are three main entrypoints in to the codebase: `client.js`, `server.js`, a
 processed, and exported individually. The code in `client.js` will end up embedded in `index.html`, and the other two
 files will produce output files of the same name.
 
-Inside any of the main JS files you can directly inline another js file by placing a
-comment of the format `//__include otherfile.inc.js`. The `inc` is not technically important, just conventional
-in this project. The intention with using these inline directives instead of `require` or something similar is to
-avoid any module loading boilerplate at all costs. Functions that live in `.inc.js` files are prefixed with namespaces
-to avoid collision, and once inlined in the main source file they are reduced to single-letter names or further inlined
-by UglifyJS.
+Inside any of the main JS files you can directly inline another js file by placing a comment of the format
+`//__include otherfile.inc.js`. The `inc` is not technically important, just conventional in this project. The intention
+with using these inline directives instead of `require` or something similar is to avoid any module loading boilerplate
+and provide UglifyJS with an input it can work with most effectivel. Functions that live in `.inc.js` files are prefixed
+with namespaces to avoid collision, and once inlined in the main source file they are reduced to single-letter names or
+further inlined by UglifyJS.
 
 The `shared.js` file is handled slightly differently than `client.js` and `server.js`. In order to easily shrink the names
 of shared symbols between client and server, top-level variables in `shared.js` are prefixed with `$`. This is just to make
-finding them easier and unambiguous in the lazy build script. When these variables, prefixed by `$`, are found in either of
+finding them easier and unambiguous in the build script. When these variables, prefixed by `$`, are found in either of
 the other main source files, they are minified to matching names.
 
 Since this toolchain is geared specifically towards using WebGL, there's a bit of magic that happens to make the WebGL
 context functions and constants smaller. *TODO Explain name mangling*
 
-*TODO mention external resource filename minification*
+*TODO explain `__includeSongData`*
 
 #### Shader Bundling and Optimizations
 
 All of the GLSL shaders live in the `/shaders` folder.  Their contents can be accessed directly as strings
-in the client code via the generated file `shaders.gen.js` by replacing the `.` in the filename with a `_`.
+in the client code via the generated file `shaders.gen.js` by replacing the `.` in the file name with a `_`.
 For example, the shader `ship.frag` is available in the client code via the variable `ship_frag`. Shaders
 must have a `.frag`, `.vert` or `.glsl` file extension.
 

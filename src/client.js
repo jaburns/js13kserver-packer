@@ -69,8 +69,9 @@ let drawScene = state => {
         let projectionMatrix = mat4_perspective(aspectRatio, .01, 100);
         let viewMatrix = [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
         let modelMatrix = Transform_toMatrix(transform);
-        let mvp = mat4_multiply(projectionMatrix, mat4_multiply(viewMatrix, modelMatrix));
-        gl.uniformMatrix4fv(gl.getUniformLocation(cubeProg, 'u_mvp'), false, mvp);
+        gl.uniformMatrix4fv(gl.getUniformLocation(cubeProg, 'u_model'), false, modelMatrix);
+        gl.uniformMatrix4fv(gl.getUniformLocation(cubeProg, 'u_view'), false, viewMatrix);
+        gl.uniformMatrix4fv(gl.getUniformLocation(cubeProg, 'u_proj'), false, projectionMatrix);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, cubeModel.v);
         let posLoc = gl.getAttribLocation(cubeProg, 'a_position');

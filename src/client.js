@@ -12,22 +12,26 @@ let gl = C.getContext('webgl');
 let socket = io()
   , lastReceiveState
   , lastState
-  , state
-  , shaderProg = gfx_compileProgram(ship_vert, ship_frag)
-  , fxShader = gfx_compileProgram(fullquad_vert, screen_frag)
-//, sampleTex = gfx_drawShaderToTexture(gfx_compileProgram(fullquad_vert, texture_frag), 1024)
+  , currentState 
+  , cubeProg = gfx_compileProgram(cube_vert, cube_frag)
+  , blurPassProg = gfx_compileProgram(fullQuad_vert, blurPass_frag)
+  , pickBloomPassProg = gfx_compileProgram(fullQuad_vert, pickBloomPass_frag)
+  , composePassProg = gfx_compileProgram(fullQuad_vert, composePass_frag)
   , renderBuffer = gfx_createBufferRenderer()
-  , frameBuffer = gfx_createFrameBufferTexture()
+  , frameBuffer0 = gfx_createFrameBufferTexture()
+  , frameBuffer1 = gfx_createFrameBufferTexture()
   , cubeModel
   , aspectRatio
-  , soundyBoi
+  , soundEffect
   , transform = Transform_create()
   , resizeFunc = () => {
-        C.width = innerWidth;
-        C.height = innerHeight;
-        frameBuffer.r(C.width, C.height);
-        gl.viewport(0, 0, C.width, C.height);
-        aspectRatio = C.width / C.height;
+        let w = innerWidth, h = innerHeight;
+        C.width = w;
+        C.height = h;
+        frameBuffer0.r(w, h);
+        frameBuffer1.r(w, h);
+        gl.viewport(0, 0, w, h);
+        aspectRatio = w / h;
     };
 
 onresize = resizeFunc;
@@ -38,20 +42,19 @@ socket.on("connect", () => {
     onkeyup = k => socket.emit('u', k.keyCode);
 
     socket.on('s', s => {
-        lastState = state;
-        state = s;
+        lastState = currentState;
+        currentState = s;
         lastReceiveState = Date.now();
     });
 });
 
 gl.clearColor(0, 0, 0, 1);
-gl.enable(gl.DEPTH_TEST);
 
-let render = state => {
-    gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer.f);
+let drawScene = state => {
+    gl.enable(gl.DEPTH_TEST);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    gl.useProgram(shaderProg);
+    gl.useProgram(cubeProg);
 
     state.forEach((player, i) => {
         let t = Date.now() / 1000 + i*1.7;
@@ -64,30 +67,64 @@ let render = state => {
         let viewMatrix = [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
         let modelMatrix = Transform_toMatrix(transform);
         let mvp = mat4_multiply(projectionMatrix, mat4_multiply(viewMatrix, modelMatrix));
-        gl.uniformMatrix4fv(gl.getUniformLocation(shaderProg, 'u_mvp'), false, mvp);
+        gl.uniformMatrix4fv(gl.getUniformLocation(cubeProg, 'u_mvp'), false, mvp);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, cubeModel.v);
-        let posLoc = gl.getAttribLocation(shaderProg, 'a_position');
+        let posLoc = gl.getAttribLocation(cubeProg, 'a_position');
         gl.enableVertexAttribArray(posLoc);
         gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, cubeModel.n);
-        posLoc = gl.getAttribLocation(shaderProg, 'a_normal');
+        posLoc = gl.getAttribLocation(cubeProg, 'a_normal');
         gl.enableVertexAttribArray(posLoc);
         gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeModel.i);
         gl.drawElements(gl.TRIANGLES, cubeModel.t, gl.UNSIGNED_SHORT, 0);
     });
+};
+
+let render = state => {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer0.f);
+
+    drawScene(state);
+
+    gl.disable(gl.DEPTH_TEST);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer1.f);
+
+    renderBuffer(pickBloomPassProg, frameBuffer0.t); 
+
+    for (let i = 0; i < 10; ++i) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer0.f);
+
+        renderBuffer(blurPassProg, frameBuffer1.t, () => {
+            gl.uniform2f(gl.getUniformLocation(blurPassProg, 'u_direction'), 0, 1);
+        });
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer1.f);
+
+        renderBuffer(blurPassProg, frameBuffer0.t, () => {
+            gl.uniform2f(gl.getUniformLocation(blurPassProg, 'u_direction'), 1, 0);
+        });
+    }
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer0.f);
+
+    drawScene(state);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    renderBuffer(fxShader, frameBuffer.t);
-//  renderBuffer(fxShader, sampleTex);
+
+    renderBuffer(composePassProg, frameBuffer0.t, () => {
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, frameBuffer1.t);
+        gl.uniform1i(gl.getUniformLocation(composePassProg, 'u_bloom'), 1);
+    });
 };
 
 let update = () => {
-    if (lastState && state && cubeModel)
-        render(state_lerp(lastState, state, (Date.now() - lastReceiveState) / G_TICK_MILLIS));
+    if (lastState && currentState && cubeModel)
+        render(state_lerp(lastState, currentState, (Date.now() - lastReceiveState) / G_TICK_MILLIS));
     requestAnimationFrame(update);
 };
 
@@ -96,8 +133,8 @@ update();
 gfx_loadModel('cube.8').then(x => cubeModel = x);
 
 let exampleSFX=__includeSongData({songData:[{i:[0,255,116,1,0,255,120,0,1,127,4,6,35,0,0,0,0,0,0,2,14,0,10,32,0,0,0,0],p:[1],c:[{n:[140],f:[]}]}],rowLen:5513,patternLen:32,endPattern:0,numChannels:1});
-sbPlay(exampleSFX, x => soundyBoi = x);
+sbPlay(exampleSFX, x => soundEffect = x);
 
 sbPlay(song);
 
-onclick = () => soundyBoi();
+onclick = soundEffect;

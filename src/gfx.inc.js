@@ -124,14 +124,12 @@ let gfx_createBufferRenderer = () => {
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,1,-1,-1,1,-1,1,-1,1,1,-1,1]), gl.STATIC_DRAW);
 
-    return (shader, texture) => {
+    return (shader, texture, preDraw) => {
         gl.useProgram(shader);
 
-        if (texture) {
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, texture);
-            gl.uniform1i(gl.getUniformLocation(shader, "u_tex"), 0);
-        }
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.uniform1i(gl.getUniformLocation(shader, "u_tex"), 0);
 
         gl.uniform2f(gl.getUniformLocation(shader, 'u_resolution'), C.width, C.height);
 
@@ -139,6 +137,8 @@ let gfx_createBufferRenderer = () => {
         let posLoc = gl.getAttribLocation(shader, "a_position");
         gl.enableVertexAttribArray(posLoc);
         gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+        preDraw && preDraw();
 
         gl.drawArrays(gl.TRIANGLES, 0, 6);
     };
@@ -173,13 +173,4 @@ let gfx_createFrameBufferTexture = () => {
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depth);
 
     return result;
-};
-
-let gfx_drawShaderToTexture = (shader, widthHeight) => {
-    let frameBuffer = gfx_createFrameBufferTexture();
-    frameBuffer.r(widthHeight, widthHeight);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer.f);
-    gl.viewport(0, 0, widthHeight, widthHeight);
-    gfx_createBufferRenderer()(shader);
-    return frameBuffer.t;
 };

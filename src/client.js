@@ -17,9 +17,11 @@ let socket = io()
   , blurPassProg = gfx_compileProgram(fullQuad_vert, blurPass_frag)
   , pickBloomPassProg = gfx_compileProgram(fullQuad_vert, pickBloomPass_frag)
   , composePassProg = gfx_compileProgram(fullQuad_vert, composePass_frag)
+  , fxaaPassProg = gfx_compileProgram(fullQuad_vert, fxaaPass_frag)
   , renderBuffer = gfx_createBufferRenderer()
   , frameBuffer0 = gfx_createFrameBufferTexture()
   , frameBuffer1 = gfx_createFrameBufferTexture()
+  , frameBuffer2 = gfx_createFrameBufferTexture()
   , cubeModel
   , aspectRatio
   , soundEffect
@@ -30,6 +32,7 @@ let socket = io()
         C.height = h;
         frameBuffer0.r(w, h);
         frameBuffer1.r(w, h);
+        frameBuffer2.r(w, h);
         gl.viewport(0, 0, w, h);
         aspectRatio = w / h;
     };
@@ -95,8 +98,10 @@ let render = state => {
 
     renderBuffer(pickBloomPassProg, frameBuffer0.t); 
 
+    // Now: 0 -> scene, 1 -> only bloom sources, 2 -> nothing
+
     for (let i = 0; i < 10; ++i) {
-        gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer0.f);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer2.f);
 
         renderBuffer(blurPassProg, frameBuffer1.t, () => {
             gl.uniform2f(gl.getUniformLocation(blurPassProg, 'u_direction'), 0, 1);
@@ -104,22 +109,28 @@ let render = state => {
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer1.f);
 
-        renderBuffer(blurPassProg, frameBuffer0.t, () => {
+        renderBuffer(blurPassProg, frameBuffer2.t, () => {
             gl.uniform2f(gl.getUniformLocation(blurPassProg, 'u_direction'), 1, 0);
         });
     }
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer0.f);
+    // Now: 0 -> scene, 1 -> blurred bloom, 2 -> nothing
 
-    drawScene(state);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer2.f);
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     renderBuffer(composePassProg, frameBuffer0.t, () => {
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, frameBuffer1.t);
         gl.uniform1i(gl.getUniformLocation(composePassProg, 'u_bloom'), 1);
     });
+
+    // Now: 0 -> scene, 1 -> blurred bloom, 2 -> composed scene with bloom
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    renderBuffer(fxaaPassProg, frameBuffer2.t);
 };
 
 let update = () => {

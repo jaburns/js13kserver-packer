@@ -6,15 +6,14 @@ void main()
 {
     vec3 color = v_color;
 
-//  if (!(color.r > .9 && color.g < .1 && color.b < .1))
-//  {
-        float brightness = clamp(10. - dot(v_position, v_position), 0., 1.);
-//      float angle = clamp(dot(normalize(v_position), normalize(v_normal)), 0., 1.);
-//
-//      color *= .3 + .5*brightness;
-//  }
-
-    color = vec3(brightness);
+    if (!(color.r > .9 && color.g < .1 && color.b < .1))
+    {
+        vec3 lightVec = -normalize(v_position);
+        float brightness = clamp(0., 1., dot(lightVec, v_normal));
+        float distanceDecay = clamp(1.1 - .05*dot(v_position, v_position), 0., 1.);
+  
+        color *= .1 + .7*brightness*distanceDecay;
+    }
 
     gl_FragColor = vec4(color, 1);
 }

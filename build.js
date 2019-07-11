@@ -3,7 +3,7 @@ const _ = require('lodash');
 const shell = require('shelljs');
 const uglify = require("uglify-es").minify;
 const constants = require('./src/constants.json');
-const webglFuncs = require('./webgl-funcs.json');
+const webglDecls = require('./webgl-funcs.json');
 
 const SHADER_MIN_TOOL = process.platform === 'win32' ? 'tools\\shader_minifier.exe' : 'mono tools/shader_minifier.exe';
 const ADVZIP_TOOL = process.platform === 'win32' ? '..\\..\\tools\\advzip.exe' : '../../tools/advzip.osx';
@@ -12,6 +12,9 @@ const MINIFY = process.argv[2] === '--small';
 let shaderMinNames = 'abcdefghijklmnopqrstuvwxyz'.split('').map(x => 'z' + x);
 
 const MAGIC_HASH_OFFSET = 3;
+
+const webglFuncs = Object.keys(webglDecls).map(x => webglDecls[x] === null ? x : null).filter(x => x !== null);
+const webglConsts = {}; Object.keys(webglDecls).forEach(x => { if (webglDecls[x] !== null) webglConsts[x] = webglDecls[x]; });
 
 const extractGLSLFunctionName = proto =>
     proto.substring(proto.indexOf(' ') + 1, proto.indexOf('('));
@@ -223,6 +226,11 @@ const mangleGLCalls = code => {
     }
 
     code = code.replace('//__insertGLOptimize', `for (let k in gl) { ${hashAlgo}; gl[s] = gl[k]; }`);
+
+    for (let k in webglConsts) {
+        console.log(k);
+        code = code.replace(new RegExp(`gl\\.${k}([^a-zA-Z0-9])`, 'g'), `${webglConsts[k]}$1`);
+    }
 
     glCalls.forEach(func => {
         code = code.replace(new RegExp(`gl\\.${func}([^a-zA-Z0-9])`, 'g'), `gl.${genHash(func)}$1`);

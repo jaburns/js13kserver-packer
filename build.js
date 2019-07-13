@@ -192,42 +192,23 @@ const replaceIncludeDirectivesWithInlinedFiles = code => {
     return result.join('\n');
 };
 
-const findHashCollisions = (hashFunc, items) => {
-    const hashes = items.map(hashFunc);
-    const dupes = _.uniq(_.filter(hashes, (v, i, a) => a.indexOf(v) !== i));
-
-    return items
-        .map((x, i) => dupes.indexOf(hashes[i]) >= 0 ? x : null)
-        .filter(x => x !== null);
-};
-
 const mangleGLCalls = code => {
-    const hashAlgo = `
-        let n = k.split('').map(x=>x.charCodeAt(0)).reduce((a,v,j)=>a+v*j*73%1e6),
-            s = String.fromCharCode(97+n%26) + (0|n/26%36).toString(36);`;
-
-    const genHash = k => eval(hashAlgo + ';s');
-
-    const glCalls = _.uniq(code.match(/gl\.[a-zA-Z0-9_]+/g)).map(x => x.substr(3));
-    const allCollisions = findHashCollisions(genHash, webglFuncs);
-    const localCollisions = glCalls.map(x => allCollisions.indexOf(x) >= 0 ? x : null).filter(x => x !== null);
-
-    if (localCollisions.length > 0) {
-        console.log('The source is using one or more WebGL calls which collide in the mangler:');
-        console.log(localCollisions);
-        console.log('\nThe following identifiers are currently not mangled uniquely:');
-        console.log(allCollisions);
-        process.exit(1);
-    }
-
-    code = code.replace('//__insertGLOptimize', `for (let k in gl) { ${hashAlgo}; gl[s] = gl[k]; }`);
+    code = code.replace('//__insertGLOptimize', `
+        let webglFuncs=[],webglFunc;
+        for(webglFunc in gl)webglFuncs.push(webglFunc);
+        for(webglFunc in gl)gl[webglFuncs.sort().indexOf(webglFunc)]=gl[webglFunc];`);
 
     for (let k in webglConsts) {
         code = code.replace(new RegExp(`gl\\.${k}([^a-zA-Z0-9])`, 'g'), `${webglConsts[k]}$1`);
     }
 
+    const genHash = k =>
+        Object.keys(webglDecls).sort().reverse().indexOf(k);
+
+    const glCalls = _.uniq(code.match(/gl\.[a-zA-Z0-9_]+/g)).map(x => x.substr(3));
+
     glCalls.forEach(func => {
-        code = code.replace(new RegExp(`gl\\.${func}([^a-zA-Z0-9])`, 'g'), `gl.${genHash(func)}$1`);
+        code = code.replace(new RegExp(`gl\\.${func}([^a-zA-Z0-9])`, 'g'), `gl[${genHash(func)}]$1`);
     });
 
     return code;

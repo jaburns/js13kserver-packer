@@ -11,8 +11,6 @@ const MINIFY = process.argv[2] === '--small';
 
 let shaderMinNames = 'abcdefghijklmnopqrstuvwxyz'.split('').map(x => 'z' + x);
 
-const MAGIC_HASH_OFFSET = 3;
-
 const webglFuncs = Object.keys(webglDecls).map(x => webglDecls[x] === null ? x : null).filter(x => x !== null);
 const webglConsts = {}; Object.keys(webglDecls).forEach(x => { if (webglDecls[x] !== null) webglConsts[x] = webglDecls[x]; });
 
@@ -205,10 +203,8 @@ const findHashCollisions = (hashFunc, items) => {
 
 const mangleGLCalls = code => {
     const hashAlgo = `
-        let Z = String.fromCharCode,
-            n = k.split('').map(x=>x.charCodeAt(0)+${MAGIC_HASH_OFFSET}).reduce((a,v,i)=>v<<i%16*2^a),
-            m = (n<0?-n:n)%17576,
-            s = Z(97+m%26) + Z(97+m/26%26) + Z(97+m/676)`;
+        let n = k.split('').map(x=>x.charCodeAt(0)).reduce((a,v,j)=>a+v*j*73%1e6),
+            s = String.fromCharCode(97+n%26) + (0|n/26%36).toString(36);`;
 
     const genHash = k => eval(hashAlgo + ';s');
 
@@ -221,14 +217,12 @@ const mangleGLCalls = code => {
         console.log(localCollisions);
         console.log('\nThe following identifiers are currently not mangled uniquely:');
         console.log(allCollisions);
-        console.log('\nAdjust the value of MAGIC_HASH_OFFSET in build.js until no more collisions occur :)\n');
         process.exit(1);
     }
 
     code = code.replace('//__insertGLOptimize', `for (let k in gl) { ${hashAlgo}; gl[s] = gl[k]; }`);
 
     for (let k in webglConsts) {
-        console.log(k);
         code = code.replace(new RegExp(`gl\\.${k}([^a-zA-Z0-9])`, 'g'), `${webglConsts[k]}$1`);
     }
 

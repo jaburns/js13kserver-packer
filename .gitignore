@@ -3,3 +3,4 @@ package-lock.json
 .vs/
 src/*.gen.js
 bundle.zip
+build/

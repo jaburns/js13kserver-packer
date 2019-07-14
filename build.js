@@ -158,11 +158,11 @@ const findSharedFunctionReplacements = sharedCode => {
 };
 
 const findExternalFileReplacementsAndRenameFiles = () => {
-    const files = shell.ls('js13kserver/public');
+    const files = shell.ls('build');
     const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
 
     files.forEach((x, i) => {
-        shell.mv('js13kserver/public/'+x, 'js13kserver/public/'+alphabet[i]);
+        shell.mv('build/'+x, 'build/'+alphabet[i]);
     });
 
     return _.zip(
@@ -207,7 +207,7 @@ const mangleGLCalls = code => {
     }
 
     const genHash = k =>
-        Object.keys(webglDecls).sort().reverse().indexOf(k);
+        Object.keys(webglDecls).sort().indexOf(k);
 
     const glCalls = _.uniq(code.match(/gl\.[a-zA-Z0-9_]+/g)).map(x => x.substr(3));
 
@@ -271,10 +271,9 @@ const processHTML = (html, clientJS) =>
 const main = () => {
     constants.__DEBUG = !MINIFY;
 
-    shell.rm('-rf', './js13kserver/public');
-    shell.mkdir('-p', './js13kserver/public');
-    shell.cp('-r', './public/*', './js13kserver/public/');
-    shell.cp('./js13kserver-index.js', 'js13kserver/index.js');
+    shell.rm('-rf', './build');
+    shell.mkdir('-p', './build');
+    shell.cp('-r', './public/*', './build');
 
     console.log('Packing shaders...');
 
@@ -296,9 +295,9 @@ const main = () => {
     const finalClientJS = processFile(replacements, 'client.js', clientCode);
     const finalHTML = processHTML(fs.readFileSync(MINIFY ? 'src/index.html' : 'src/index.debug.html', 'utf8'), finalClientJS);
 
-    fs.writeFileSync('./js13kserver/public/index.html', finalHTML);
-    fs.writeFileSync('./js13kserver/public/shared.js', processFile(replacements, 'shared.js', sharedCode));
-    fs.writeFileSync('./js13kserver/public/server.js', processFile(replacements, 'server.js', serverCode));
+    fs.writeFileSync('./build/index.html', finalHTML);
+    fs.writeFileSync('./build/shared.js', processFile(replacements, 'shared.js', sharedCode));
+    fs.writeFileSync('./build/server.js', processFile(replacements, 'server.js', serverCode));
 
     if (!MINIFY) {
         console.log('Done!\n');
@@ -307,9 +306,9 @@ const main = () => {
 
     console.log('Packing zip archive...');
 
-    shell.cd('js13kserver/public');
-    shell.exec(ADVZIP_TOOL + ' -q -a -4 ../../bundle.zip *');
-    shell.cd('../..');
+    shell.cd('build');
+    shell.exec(ADVZIP_TOOL + ' -q -a -4 ../bundle.zip *');
+    shell.cd('..');
 
     const bytes = fs.statSync('bundle.zip').size;
 

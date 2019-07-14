@@ -6,7 +6,11 @@ const constants = require('./src/constants.json');
 const webglDecls = require('./webgl-funcs.json');
 
 const SHADER_MIN_TOOL = process.platform === 'win32' ? 'tools\\shader_minifier.exe' : 'mono tools/shader_minifier.exe';
-const ADVZIP_TOOL = process.platform === 'win32' ? '..\\..\\tools\\advzip.exe' : '../../tools/advzip.osx';
+
+const ADVZIP_TOOL = process.platform === 'win32' ? '..\\..\\tools\\advzip.exe' :
+    process.platform === 'linux' ? '../../tools/advzip.linux' :
+    '../../tools/advzip.osx';
+
 const MINIFY = process.argv[2] === '--small';
 
 let shaderMinNames = 'abcdefghijklmnopqrstuvwxyz'.split('').map(x => 'z' + x);
@@ -93,7 +97,7 @@ const buildShaderIncludeFile = () => {
 
                 includedFuncs = includedFuncs.concat(incFuncs);
 
-                shell.exec(`${SHADER_MIN_TOOL} --preserve-externals ${incFuncsArg} --format js ${x} -o tmp.js`, {silent: true});
+                shell.exec(`${SHADER_MIN_TOOL} --preserve-externals ${incFuncsArg} --format js ${x} -o tmp.js`); // , {silent: true});
                 fileContents += fs.readFileSync('tmp.js', 'utf8');
             } else {
                 fileContents += `let ${varFileName} = \`${rawFile}\`;\n\n`;

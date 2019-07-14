@@ -1,8 +1,24 @@
-FROM node:12-slim
+FROM node:12
 
 RUN apt-get update
 RUN apt-get install -y mono-runtime
 
-COPY tools /root/tools
+RUN mkdir -p /var/app/js13kserver
 
-CMD ["/root/tools/advzip.linux"]
+COPY package*.json /var/app/
+COPY js13kserver/package*.json /var/app/js13kserver/
+
+WORKDIR /var/app/js13kserver
+RUN npm install
+
+WORKDIR /var/app
+RUN npm install
+
+COPY . /var/app
+
+ENV PORT 3000
+EXPOSE 3000
+
+RUN npm run pack
+
+CMD ["npm", "start"]

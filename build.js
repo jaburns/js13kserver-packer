@@ -3,13 +3,10 @@ const _ = require('lodash');
 const shell = require('shelljs');
 const uglify = require("uglify-es").minify;
 const constants = require('./src/constants.json');
-const webglDecls = require('./webgl-funcs.json');
+const webglDecls = require('./webglContext.json');
 
 const SHADER_MIN_TOOL = process.platform === 'win32' ? 'tools\\shader_minifier.exe' : 'mono tools/shader_minifier.exe';
-
-const ADVZIP_TOOL = process.platform === 'win32' ? '..\\..\\tools\\advzip.exe' :
-    process.platform === 'linux' ? '../../tools/advzip.linux' :
-    '../../tools/advzip.osx';
+const ADVZIP_TOOL = process.platform === 'win32' ? '..\\tools\\advzip.exe' : '../tools/advzip.osx';
 
 const MINIFY = process.argv[2] === '--small';
 

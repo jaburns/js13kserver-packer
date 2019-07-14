@@ -119,12 +119,12 @@ let gfx_compileProgram = (vert, frag) => {
     return prog;
 };
 
-let gfx_createBufferRenderer = () => {
+let gfx_renderBuffer; {
     let vertexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,1,-1,-1,1,-1,1,-1,1,1,-1,1]), gl.STATIC_DRAW);
 
-    return (shader, texture, preDraw) => {
+    gfx_renderBuffer = (shader, texture, preDraw) => {
         gl.useProgram(shader);
 
         gl.activeTexture(gl.TEXTURE0);

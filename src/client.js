@@ -2,6 +2,9 @@ let gl = C.getContext('webgl');
 
 //__insertGLOptimize
 
+//gl.getExtension('OES_texture_float');
+//gl.getExtension('OES_texture_float_linear');
+
 //__include soundbox-player.inc.js
 //__include shaders.gen.js
 //__include math.inc.js
@@ -18,7 +21,6 @@ let socket = io()
   , pickBloomPassProg = gfx_compileProgram(fullQuad_vert, pickBloomPass_frag)
   , composePassProg = gfx_compileProgram(fullQuad_vert, composePass_frag)
   , fxaaPassProg = gfx_compileProgram(fullQuad_vert, fxaaPass_frag)
-  , renderBuffer = gfx_createBufferRenderer()
   , frameBuffer0 = gfx_createFrameBufferTexture()
   , frameBuffer1 = gfx_createFrameBufferTexture()
   , frameBuffer2 = gfx_createFrameBufferTexture()
@@ -97,20 +99,20 @@ let render = state => {
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer1.f);
 
-    renderBuffer(pickBloomPassProg, frameBuffer0.t); 
+    gfx_renderBuffer(pickBloomPassProg, frameBuffer0.t); 
 
     // Now: 0 -> scene, 1 -> only bloom sources, 2 -> nothing
 
     for (let i = 0; i < 10; ++i) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer2.f);
 
-        renderBuffer(blurPassProg, frameBuffer1.t, () => {
+        gfx_renderBuffer(blurPassProg, frameBuffer1.t, () => {
             gl.uniform2f(gl.getUniformLocation(blurPassProg, 'u_direction'), 0, 1);
         });
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer1.f);
 
-        renderBuffer(blurPassProg, frameBuffer2.t, () => {
+        gfx_renderBuffer(blurPassProg, frameBuffer2.t, () => {
             gl.uniform2f(gl.getUniformLocation(blurPassProg, 'u_direction'), 1, 0);
         });
     }
@@ -121,7 +123,7 @@ let render = state => {
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    renderBuffer(composePassProg, frameBuffer0.t, () => {
+    gfx_renderBuffer(composePassProg, frameBuffer0.t, () => {
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, frameBuffer1.t);
         gl.uniform1i(gl.getUniformLocation(composePassProg, 'u_bloom'), 1);
@@ -131,7 +133,7 @@ let render = state => {
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
-    renderBuffer(fxaaPassProg, frameBuffer2.t);
+    gfx_renderBuffer(fxaaPassProg, frameBuffer2.t);
 };
 
 let update = () => {

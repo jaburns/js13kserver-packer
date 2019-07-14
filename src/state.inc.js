@@ -4,7 +4,7 @@
 
 // Used by client.js
 let state_lerp = (a, b, t) =>
-    b.map((p, i) => (i <= a.length) ? {
+    b.map((p, i) => (i < a.length) ? {
             x: a[i].x+(p.x-a[i].x)*t,
             y: a[i].y+(p.y-a[i].y)*t
         } : {x:1/0,y:0});

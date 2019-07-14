@@ -2,8 +2,6 @@
  * https://github.com/mattdesl/glsl-fxaa
  */
 
- varying vec3 v_doge1;
-
 //__export
 vec4 fxaa(sampler2D tex, vec2 fragCoord, vec2 resolution)
 {

@@ -11,9 +11,6 @@ const MINIFY = process.argv[2] === '--small';
 
 let shaderMinNames = 'abcdefghijklmnopqrstuvwxyz'.split('').map(x => 'z' + x);
 
-const webglFuncs = Object.keys(webglDecls).map(x => webglDecls[x] === null ? x : null).filter(x => x !== null);
-const webglConsts = {}; Object.keys(webglDecls).forEach(x => { if (webglDecls[x] !== null) webglConsts[x] = webglDecls[x]; });
-
 const extractGLSLFunctionName = proto =>
     proto.substring(proto.indexOf(' ') + 1, proto.indexOf('('));
 
@@ -197,6 +194,13 @@ const mangleGLCalls = code => {
         let webglFuncs=[],webglFunc;
         for(webglFunc in gl)webglFuncs.push(webglFunc);
         for(webglFunc in gl)gl[webglFuncs.sort().indexOf(webglFunc)]=gl[webglFunc];`);
+
+    const webglConsts = {};
+
+    Object.keys(webglDecls).forEach(x => {
+        if (webglDecls[x] !== null)
+            webglConsts[x] = webglDecls[x];
+    });
 
     for (let k in webglConsts) {
         code = code.replace(new RegExp(`gl\\.${k}([^a-zA-Z0-9])`, 'g'), `${webglConsts[k]}$1`);

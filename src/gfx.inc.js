@@ -125,12 +125,12 @@ let gfx_compileProgram = (vert, frag) => {
     return prog;
 };
 
-let gfx_createBufferRenderer = () => {
+let gfx_renderBuffer; {
     let vertexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,1,-1,-1,1,-1,1,-1,1,1,-1,1]), gl.STATIC_DRAW);
 
-    return (shader, texture, preDraw) => {
+    gfx_renderBuffer = (shader, texture, preDraw) => {
         gl.useProgram(shader);
 
         gl.activeTexture(gl.TEXTURE0);
@@ -162,7 +162,7 @@ let gfx_createFrameBufferTexture = () => {
         t: texture,
         r(width, height) { // resize()
             gl.bindTexture(gl.TEXTURE_2D, texture);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, width, height, 0, gl.RGB, gl.UNSIGNED_BYTE, null);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 
             gl.bindRenderbuffer(gl.RENDERBUFFER, depth);
             gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
@@ -181,19 +181,9 @@ let gfx_createFrameBufferTexture = () => {
     return result;
 };
 
-let gfx_drawShaderToTexture = (shader, widthHeight) => {
-    let frameBuffer = gfx_createFrameBufferTexture();
-    frameBuffer.r(widthHeight, widthHeight);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer.f);
-    gl.viewport(0, 0, widthHeight, widthHeight);
-    gfx_createBufferRenderer()(shader);
-    return frameBuffer.t;
-};
-
 let gfx_createCubeMap = () =>{
 
     let shader = gfx_compileProgram(fullQuad_vert,curlBox_frag);
-    let renderer = gfx_createBufferRenderer();
     let s = 1024;
 
     let framebuffer = gl.createFramebuffer();
@@ -207,7 +197,7 @@ let gfx_createCubeMap = () =>{
     for(var i=0; i<6;i++){
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_CUBE_MAP_POSITIVE_X+i, cube, 0);
         gl.viewport(0,0,s,s);
-        renderer(shader,null,()=>{
+        gfx_renderBuffer(shader,null,()=>{
             v = -~~(i%2*2-1);
             p = ~~(i/2);
             console.log((p==0)*v+","+(p==1)*v+","+(p==2)*v);

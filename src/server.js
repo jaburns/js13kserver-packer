@@ -27,4 +27,8 @@ module.exports = socket => {
         let index = self.k.indexOf(keyCode);
         if (index >= 0) self.k.splice(index, 1);
     });
+
+    socket.on('disconnect', () => {
+        players.splice(players.indexOf(self), 1);
+    });
 };

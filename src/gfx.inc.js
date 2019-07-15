@@ -44,9 +44,9 @@ let gfx_flatShadeAndloadBufferObjects = (verts, tris) => {
             normal[0],normal[1],normal[2]
         ]);
     }
-    
+
     return gfx_loadBufferObjects(
-        new Float32Array(newVerts), 
+        new Float32Array(newVerts),
         new Uint16Array(newTris),
         new Float32Array(normals)
     );
@@ -70,7 +70,7 @@ let gfx_loadBufferObjectsFromModelFile = (arrayBuffer, mode16) => {
         verts.push(vertSub[i+1] / 256 * scaleY - originY);
         verts.push(vertSub[i+2] / 256 * scaleZ - originZ);
     }
-    
+
     let tris = new Uint16Array(mode16 ? bytes.buffer.slice(triOffset) : bytes.subarray(triOffset));
 
     return gfx_flatShadeAndloadBufferObjects(new Float32Array(verts), tris);
@@ -100,7 +100,8 @@ let gfx_compileProgram = (vert, frag) => {
 
     if (__DEBUG) {
         let vertLog = gl.getShaderInfoLog(vertShader);
-        if (vertLog === null || vertLog.length > 0) showHTMLShaderError('vertex', vertLog, vert);
+        if (vertLog === null || vertLog.length > 0 && vertLog.indexOf('ERROR') >= 0)
+            showHTMLShaderError('vertex', vertLog, vert);
     }
 
     let fragShader = gl.createShader(gl.FRAGMENT_SHADER);
@@ -109,7 +110,8 @@ let gfx_compileProgram = (vert, frag) => {
 
     if (__DEBUG) {
         let fragLog = gl.getShaderInfoLog(fragShader);
-        if (fragLog === null || fragLog.length > 0) showHTMLShaderError('fragment', fragLog, frag);
+        if (fragLog === null || fragLog.length > 0 && fragLog.indexOf('ERROR') >= 0)
+            showHTMLShaderError('fragment', fragLog, frag);
     }
 
     let prog = gl.createProgram();
@@ -153,7 +155,7 @@ let gfx_renderBuffer; {
 let gfx_createFrameBufferTexture = () => {
     let framebuffer = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-        
+
     let texture = gl.createTexture();
     let depth = gl.createRenderbuffer();
 
@@ -171,11 +173,11 @@ let gfx_createFrameBufferTexture = () => {
 
     result.r(1,1);
 
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);  
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0); 
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depth);
 
     return result;

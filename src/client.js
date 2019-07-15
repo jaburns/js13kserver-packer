@@ -15,7 +15,8 @@ let gl = C.getContext('webgl');
 let socket = io()
   , lastReceiveState
   , lastState
-  , currentState 
+  , currentState
+  , skyboxProg = gfx_compileProgram(skybox_vert,skybox_frag)
   , cubeProg = gfx_compileProgram(cube_vert, cube_frag)
   , blurPassProg = gfx_compileProgram(fullQuad_vert, blurPass_frag)
   , pickBloomPassProg = gfx_compileProgram(fullQuad_vert, pickBloomPass_frag)
@@ -60,18 +61,47 @@ let drawScene = state => {
     gl.enable(gl.DEPTH_TEST);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+
+    let projectionMatrix = mat4_perspective(aspectRatio, .01, 100);
+    let viewMatrix = mat4_fromRotationTranslationScale(quat_setAxisAngle([0,1,0],Math.cos(Date.now()/1000)*0.1),[0,0,0],[1,1,1]);
+    
+    gl.depthMask(false);
+    {
+        let vertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,1,-1,-1,1,-1,1,-1,1,1,-1,1]), gl.STATIC_DRAW);
+
+        gl.useProgram(skyboxProg);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubeTexture);
+        gl.uniform1i(gl.getUniformLocation(skyboxProg, "u_tex"), 0);
+        let inv_vp = mat4_invert(mat4_multiply(projectionMatrix,viewMatrix));
+        gl.uniformMatrix4fv(gl.getUniformLocation(skyboxProg, 'u_inv_vp'), false, inv_vp);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        let posLoc = gl.getAttribLocation(skyboxProg, "a_position");
+        gl.enableVertexAttribArray(posLoc);
+        gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+    
+    };
+    gl.depthMask(true);
+
     gl.useProgram(cubeProg);
 
+
     state.forEach((player, i) => {
-        let t = Date.now() / 1000 + i*1.7;
+        let t = Date.now() / 10000 + i*1.7;
         transform.r = quat_setAxisAngle([.16,.81,.57], t);
         transform.p[0] = 4*player.x - 2;
         transform.p[1] = 4*player.y - 2;
         transform.p[2] = -3;
 
-        let projectionMatrix = mat4_perspective(aspectRatio, .01, 100);
-        let viewMatrix = [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
+
         let modelMatrix = Transform_toMatrix(transform);
+
+
         gl.uniformMatrix4fv(gl.getUniformLocation(cubeProg, 'u_model'), false, modelMatrix);
         gl.uniformMatrix4fv(gl.getUniformLocation(cubeProg, 'u_view'), false, viewMatrix);
         gl.uniformMatrix4fv(gl.getUniformLocation(cubeProg, 'u_proj'), false, projectionMatrix);

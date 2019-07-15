@@ -200,7 +200,6 @@ let gfx_createCubeMap = () =>{
         gfx_renderBuffer(shader,null,()=>{
             v = -~~(i%2*2-1);
             p = ~~(i/2);
-            console.log((p==0)*v+","+(p==1)*v+","+(p==2)*v);
             gl.uniform3f(gl.getUniformLocation(shader, 'u_dir'), (p==0)*v,(p==1)*v,(p==2)*v);
         });
     }

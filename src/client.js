@@ -22,6 +22,7 @@ let socket = io()
   , frameBuffer0 = gfx_createFrameBufferTexture()
   , frameBuffer1 = gfx_createFrameBufferTexture()
   , frameBuffer2 = gfx_createFrameBufferTexture()
+  , cubeTexture = gfx_createCubeMap()
   , cubeModel
   , aspectRatio
   , soundEffect

@@ -116,6 +116,12 @@ let gfx_compileProgram = (vert, frag) => {
     gl.attachShader(prog, vertShader);
     gl.attachShader(prog, fragShader);
     gl.linkProgram(prog);
+
+    if (__DEBUG) {
+        let vertLog = gl.getShaderInfoLog(vertShader);
+        if (vertLog === null || vertLog.length > 0) showHTMLShaderError('Link Error', vertLog, vert);
+    }
+
     return prog;
 };
 
@@ -174,3 +180,41 @@ let gfx_createFrameBufferTexture = () => {
 
     return result;
 };
+
+let gfx_drawShaderToTexture = (shader, widthHeight) => {
+    let frameBuffer = gfx_createFrameBufferTexture();
+    frameBuffer.r(widthHeight, widthHeight);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer.f);
+    gl.viewport(0, 0, widthHeight, widthHeight);
+    gfx_createBufferRenderer()(shader);
+    return frameBuffer.t;
+};
+
+let gfx_createCubeMap = () =>{
+
+    let shader = gfx_compileProgram(fullQuad_vert,curlBox_frag);
+    let renderer = gfx_createBufferRenderer();
+    let s = 1024;
+
+    let framebuffer = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+        
+    let cube = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube);
+    for(var i=0; i<6; i++){
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X+i, 0, gl.RGBA, s, s, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    }
+    for(var i=0; i<6;i++){
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_CUBE_MAP_POSITIVE_X+i, cube, 0);
+        gl.viewport(0,0,s,s);
+        renderer(shader,null,()=>{
+            v = -~~(i%2*2-1);
+            p = ~~(i/2);
+            console.log((p==0)*v+","+(p==1)*v+","+(p==2)*v);
+            gl.uniform3f(gl.getUniformLocation(shader, 'u_dir'), (p==0)*v,(p==1)*v,(p==2)*v);
+        });
+    }
+    gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    return cube;
+}

@@ -90,10 +90,10 @@ let drawScene = state => {
 };
 
 let render = state => {
-    gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer0.f);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);// frameBuffer0.f);
 
     drawScene(state);
-
+    return;
     gl.disable(gl.DEPTH_TEST);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer1.f);

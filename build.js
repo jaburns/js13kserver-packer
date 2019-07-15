@@ -267,7 +267,7 @@ const mangleGLCalls_indices = code => {
     return code;
 };
 
-const mangleGLCalls = mangleGLCalls_hash;
+const mangleGLCalls = mangleGLCalls_indices;
 
 const processFile = (replacements, file, code) => {
     if (!MINIFY) {

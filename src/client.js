@@ -1,4 +1,5 @@
 let gl = C.getContext('webgl');
+gl.getExtension("WEBGL_depth_texture");
 
 //__insertGLOptimize
 
@@ -20,11 +21,13 @@ let socket = io()
   , cubeProg = gfx_compileProgram(cube_vert, cube_frag)
   , blurPassProg = gfx_compileProgram(fullQuad_vert, blurPass_frag)
   , pickBloomPassProg = gfx_compileProgram(fullQuad_vert, pickBloomPass_frag)
+  , depthPass = gfx_compileProgram(fullQuad_vert,renderDepth_frag)
+  , reprojectProg = gfx_compileProgram(fullQuad_vert,reproject_frag)
+  , copyProg = gfx_compileProgram(fullQuad_vert,copy_frag)
   , composePassProg = gfx_compileProgram(fullQuad_vert, composePass_frag)
   , fxaaPassProg = gfx_compileProgram(fullQuad_vert, fxaaPass_frag)
-  , frameBuffer0 = gfx_createFrameBufferTexture()
-  , frameBuffer1 = gfx_createFrameBufferTexture()
-  , frameBuffer2 = gfx_createFrameBufferTexture()
+  , frameBuffers = [gfx_createFrameBufferTexture(),gfx_createFrameBufferTexture(),gfx_createFrameBufferTexture()]
+  , swap = 0
   , cubeTexture = gfx_createCubeMap()
   , cubeModel
   , aspectRatio
@@ -34,9 +37,9 @@ let socket = io()
         let w = innerWidth, h = innerHeight;
         C.width = w;
         C.height = h;
-        frameBuffer0.r(w, h);
-        frameBuffer1.r(w, h);
-        frameBuffer2.r(w, h);
+        frameBuffers[0].r(w, h);
+        frameBuffers[1].r(w, h);
+        frameBuffers[2].r(w, h);
         gl.viewport(0, 0, w, h);
         aspectRatio = w / h;
     };
@@ -62,7 +65,7 @@ let drawScene = state => {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 
-    let projectionMatrix = mat4_perspective(aspectRatio, .01, 100);
+    let projectionMatrix = mat4_perspective(aspectRatio, .2, 100);
     let viewMatrix = mat4_fromRotationTranslationScale(quat_setAxisAngle([0,1,0],Math.cos(Date.now()/1000)*0.1),[0,0,0],[1,1,1]);
     
     gl.depthMask(false);
@@ -122,9 +125,27 @@ let drawScene = state => {
 };
 
 let render = state => {
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);// frameBuffer0.f);
-
+    nextswap = (swap+1)%2;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffers[2].f);
+    
     drawScene(state);
+
+    gl.disable(gl.DEPTH_TEST);
+    gl.bindFramebuffer(gl.FRAMEBUFFER,frameBuffers[nextswap].f);
+
+    gfx_renderBuffer(reprojectProg, frameBuffers[2].t, () => {
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, frameBuffers[swap].t);
+        gl.uniform1i(gl.getUniformLocation(reprojectProg, 'u_old'), 1);
+
+        //gl.activeTexture(gl.TEXTURE2);
+        //gl.bindTexture(gl.TEXTURE_2D, frameBuffers[2].d);
+        //gl.uniform1i(gl.getUniformLocation(reprojectProg, 'u_depth'), 2);
+    });
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+    gfx_renderBuffer(copyProg, frameBuffers[nextswap].t);
+    swap = nextswap
     return;
     gl.disable(gl.DEPTH_TEST);
 

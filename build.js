@@ -190,8 +190,22 @@ const replaceIncludeDirectivesWithInlinedFiles = code => {
     return result.join('\n');
 };
 
+const replaceGLConstants = code => {
+    const webglConsts = [];
 
+    Object.keys(webglDecls).forEach(x => {
+        if (webglDecls[x] !== null)
+            webglConsts.push({ from: x, to: webglDecls[x] });
+    });
 
+    webglConsts.sort((a, b) => b.from.length - a.from.length);
+
+    webglConsts.forEach(({ from, to }) => {
+        code = code.replace(new RegExp(`gl\\.${from}([^a-zA-Z0-9])`, 'g'), `${to}$1`);
+    });
+
+    return code;
+};
 
 const findHashCollisions = (hashFunc, items) => {
     const hashes = items.map(hashFunc);
@@ -204,7 +218,6 @@ const findHashCollisions = (hashFunc, items) => {
 
 const mangleGLCalls_hash = code => {
     const webglFuncs = Object.keys(webglDecls).map(x => webglDecls[x] === null ? x : null).filter(x => x !== null);
-    const webglConsts = {}; Object.keys(webglDecls).forEach(x => { if (webglDecls[x] !== null) webglConsts[x] = webglDecls[x]; });
 
     const hashAlgo = `
         let n = k.split('').map(x=>x.charCodeAt(0)).reduce((a,v,j)=>a+v*j*73%1e6),
@@ -223,13 +236,9 @@ const mangleGLCalls_hash = code => {
         process.exit(1);
     }
 
-    console.log(allCollisions);
-
     code = code.replace('//__insertGLOptimize', `for (let k in gl) { ${hashAlgo}; gl[s] = gl[k]; }`);
 
-    for (let k in webglConsts) {
-        code = code.replace(new RegExp(`gl\\.${k}([^a-zA-Z0-9])`, 'g'), `${webglConsts[k]}$1`);
-    }
+    code = replaceGLConstants(code);
 
     glCalls.forEach(func => {
         code = code.replace(new RegExp(`gl\\.${func}([^a-zA-Z0-9])`, 'g'), `gl.${genHash(func)}$1`);
@@ -244,16 +253,7 @@ const mangleGLCalls_indices = code => {
         for(webglFunc in gl)if(['STENCIL_INDEX','releaseShaderCompiler'].indexOf(webglFunc)<0)webglFuncs.push(webglFunc);
         for(webglFunc in gl)gl[webglFuncs.sort().indexOf(webglFunc)]=gl[webglFunc];`);
 
-    const webglConsts = {};
-
-    Object.keys(webglDecls).forEach(x => {
-        if (webglDecls[x] !== null)
-            webglConsts[x] = webglDecls[x];
-    });
-
-    for (let k in webglConsts) {
-        code = code.replace(new RegExp(`gl\\.${k}([^a-zA-Z0-9])`, 'g'), `${webglConsts[k]}$1`);
-    }
+    code = replaceGLConstants(code);
 
     const genHash = k =>
         Object.keys(webglDecls).sort().indexOf(k);

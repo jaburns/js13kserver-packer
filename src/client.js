@@ -32,6 +32,9 @@ let socket = io()
   , cubeModel
   , aspectRatio
   , soundEffect
+  , lastProjection
+  , projectionMatrix
+  , viewMatrix
   , transform = Transform_create()
   , resizeFunc = () => {
         let w = innerWidth, h = innerHeight;
@@ -63,10 +66,6 @@ gl.clearColor(0, 0, 0, 1);
 let drawScene = state => {
     gl.enable(gl.DEPTH_TEST);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-
-    let projectionMatrix = mat4_perspective(aspectRatio, .2, 100);
-    let viewMatrix = mat4_fromRotationTranslationScale(quat_setAxisAngle([0,1,0],Math.cos(Date.now()/1000)*0.1),[0,0,0],[1,1,1]);
     
     gl.depthMask(false);
     {
@@ -128,6 +127,15 @@ let render = state => {
     nextswap = (swap+1)%2;
     gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffers[2].f);
     
+    projectionMatrix = mat4_perspective(aspectRatio, .2, 100);
+    viewMatrix = mat4_fromRotationTranslationScale(quat_setAxisAngle([0,1,0],Math.cos(Date.now()/1000)*0.1),[0,0,0],[1,1,1])
+
+    let projection = mat4_multiply(projectionMatrix,viewMatrix);
+    if(lastProjection==null) lastProjection=projection;
+    let reproject = mat4_multiply(lastProjection,mat4_invert(projection));
+
+    lastProjection = projection;
+
     drawScene(state);
 
     gl.disable(gl.DEPTH_TEST);
@@ -137,10 +145,11 @@ let render = state => {
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, frameBuffers[swap].t);
         gl.uniform1i(gl.getUniformLocation(reprojectProg, 'u_old'), 1);
+        gl.uniformMatrix4fv(gl.getUniformLocation(reprojectProg, 'u_reproject'), false, reproject);
 
-        //gl.activeTexture(gl.TEXTURE2);
-        //gl.bindTexture(gl.TEXTURE_2D, frameBuffers[2].d);
-        //gl.uniform1i(gl.getUniformLocation(reprojectProg, 'u_depth'), 2);
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_2D, frameBuffers[2].d);
+        gl.uniform1i(gl.getUniformLocation(reprojectProg, 'u_depth'), 2);
     });
 
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);

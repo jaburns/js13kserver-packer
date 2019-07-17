@@ -5,7 +5,6 @@ let gl = C.getContext('webgl');
 //gl.getExtension('OES_texture_float_linear');
 gl.getExtension("WEBGL_depth_texture");
 
-
 //__include soundbox-player.inc.js
 //__include shaders.gen.js
 //__include math.inc.js

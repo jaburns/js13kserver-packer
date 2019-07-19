@@ -50,7 +50,7 @@ const replaceIncludeSongCallWithConvertedSong = originalSongData =>
 const convertSongDataFormat = code => {
     const funcName = '__includeSongData(';
 
-    while (1) {
+    for (;;) {
         const funcLoc = code.indexOf(funcName);
         if (funcLoc < 0) return code;
 
@@ -59,8 +59,6 @@ const convertSongDataFormat = code => {
             + replaceIncludeSongCallWithConvertedSong(code.substr(funcLoc + funcName.length, endLoc - funcLoc - funcName.length))
             + code.substr(endLoc + 1);
     }
-
-    return code;
 };
 
 const findShaderIncludes = code => code
@@ -130,26 +128,14 @@ const buildShaderIncludeFile = () => {
     return fileContents;
 };
 
-const loadBinaryBlobs = () => {
-    const buffers = [];
-    let first = true;
+const createBinaryBlobsReplacement = () => {
+    const blobArray = "['" + 
+        shell.find('./blobs/*')
+            .map(x => fs.readFileSync(x).toString('base64'))
+            .join("','") 
+        + "']";
 
-    shell.find('./blobs/*').forEach(x => {
-        const fileBuffer = fs.readFileSync(x);
-        const lenBuffer = Buffer.alloc(2);
-
-        lenBuffer.writeUInt8(Math.floor(fileBuffer.length / 256), 0);
-        lenBuffer.writeUInt8(fileBuffer.length % 256, 1);
-
-        if (!first) buffers.push(Buffer.from(','));
-
-        buffers.push(lenBuffer);
-        buffers.push(fileBuffer);
-
-        first = false;
-    });
-
-    return Buffer.concat(buffers);
+    return [['__binaryBlobs', blobArray + '.map(x=>Uint8Array.from(atob(x),x=>x.charCodeAt(0)))']];
 };
 
 const findShaderInternalReplacements = allShaderCode => {
@@ -215,47 +201,7 @@ const replaceGLConstants = code => {
     return code;
 };
 
-const findHashCollisions = (hashFunc, items) => {
-    const hashes = items.map(hashFunc);
-    const dupes = _.uniq(_.filter(hashes, (v, i, a) => a.indexOf(v) !== i));
-
-    return items
-        .map((x, i) => dupes.indexOf(hashes[i]) >= 0 ? x : null)
-        .filter(x => x !== null);
-};
-
-const mangleGLCalls_hash = code => {
-    const webglFuncs = Object.keys(webglDecls).map(x => webglDecls[x] === null ? x : null).filter(x => x !== null);
-
-    const hashAlgo = `
-        let n = k.split('').map(x=>x.charCodeAt(0)).reduce((a,v,j)=>a+v*j*73%1e6),
-            s = String.fromCharCode(97+n%26) + (0|n/26%36).toString(36);`;
-
-    const genHash = k => eval(hashAlgo + ';s');
-
-    const glCalls = _.uniq(code.match(/gl\.[a-zA-Z0-9_]+/g)).map(x => x.substr(3));
-    const allCollisions = findHashCollisions(genHash, webglFuncs.concat(['STENCIL_INDEX','releaseShaderCompiler']));
-    const localCollisions = glCalls.map(x => allCollisions.indexOf(x) >= 0 ? x : null).filter(x => x !== null);
-
-    if (localCollisions.length > 0) {
-        console.log('The source is using one or more WebGL calls which collide in the mangler:');
-        console.log(localCollisions); console.log('\nThe following identifiers are currently not mangled uniquely:');
-        console.log(allCollisions);
-        process.exit(1);
-    }
-
-    code = code.replace('//__insertGLOptimize', `for (let k in gl) { ${hashAlgo}; gl[s] = gl[k]; }`);
-
-    code = replaceGLConstants(code);
-
-    glCalls.forEach(func => {
-        code = code.replace(new RegExp(`gl\\.${func}([^a-zA-Z0-9])`, 'g'), `gl.${genHash(func)}$1`);
-    });
-
-    return code;
-}
-
-const mangleGLCalls_indices = code => {
+const mangleGLCalls = code => {
     code = code.replace('//__insertGLOptimize', `
         let webglFuncs=[],webglFunc;
         for(webglFunc in gl)if(['STENCIL_INDEX','releaseShaderCompiler'].indexOf(webglFunc)<0)webglFuncs.push(webglFunc);
@@ -274,8 +220,6 @@ const mangleGLCalls_indices = code => {
 
     return code;
 };
-
-const mangleGLCalls = mangleGLCalls_indices;
 
 const processFile = (replacements, file, code) => {
     if (!MINIFY) {
@@ -348,18 +292,16 @@ const main = () => {
 
     const replacements = MINIFY ? _.flatten([
         findShaderInternalReplacements(allShaderCode),
-        findSharedFunctionReplacements(sharedCode)
+        findSharedFunctionReplacements(sharedCode),
+        createBinaryBlobsReplacement()
     ]) : [];
 
     console.log('Packing javascript...');
 
-    const binaryBlobsBuffer = loadBinaryBlobs();
     const finalClientJS = processFile(replacements, 'client.js', clientCode);
     const finalHTML = processHTML(fs.readFileSync(MINIFY ? 'src/index.html' : 'src/index.debug.html', 'utf8'), finalClientJS);
 
-    fs.writeFileSync('./build/index.html', binaryBlobsBuffer);
-    fs.appendFileSync('./build/index.html', finalHTML);
-
+    fs.writeFileSync('./build/index.html', finalHTML);
     fs.writeFileSync('./build/shared.js', processFile(replacements, 'shared.js', sharedCode));
     fs.writeFileSync('./build/server.js', processFile(replacements, 'server.js', serverCode));
 

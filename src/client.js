@@ -14,6 +14,7 @@ gl.getExtension("WEBGL_depth_texture");
 
 let socket = io()
   , lastReceiveState
+  , blobs = __binaryBlobs
   , lastState
   , currentState
   , skyboxProg = gfx_compileProgram(skybox_vert,skybox_frag)
@@ -165,21 +166,7 @@ let update = () => {
 
 update();
 
-fetch('#')
-    .then(response => response.arrayBuffer())
-    .then(x => {
-        let binaryBlobs = [], len, f = arr => {
-            len = arr[0] * 256+arr[1];
-            binaryBlobs.push(arr.slice(2,2+len));
-            if (arr[2+len] == 44)
-                f(arr.slice(3+len));
-        };
-        f(new Uint8Array(x));
-
-    //  with binaryBlobs {
-            cubeModel = gfx_loadBufferObjectsFromModelFile(binaryBlobs[G_CUBE_MODEL_BLOB], 0);
-    //  }
-    });
+cubeModel = gfx_loadBufferObjectsFromModelFile(blobs[G_CUBE_MODEL_BLOB]);
 
 let exampleSFX=__includeSongData({songData:[{i:[0,255,116,1,0,255,120,0,1,127,4,6,35,0,0,0,0,0,0,2,14,0,10,32,0,0,0,0],p:[1],c:[{n:[140],f:[]}]}],rowLen:5513,patternLen:32,endPattern:0,numChannels:1});
 sbPlay(exampleSFX, x => soundEffect = x);

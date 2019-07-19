@@ -130,6 +130,28 @@ const buildShaderIncludeFile = () => {
     return fileContents;
 };
 
+const loadBinaryBlobs = () => {
+    const buffers = [];
+    let first = true;
+
+    shell.find('./blobs/*').forEach(x => {
+        const fileBuffer = fs.readFileSync(x);
+        const lenBuffer = Buffer.alloc(2);
+
+        lenBuffer.writeUInt8(Math.floor(fileBuffer.length / 256), 0);
+        lenBuffer.writeUInt8(fileBuffer.length % 256, 1);
+
+        if (!first) buffers.push(Buffer.from(','));
+
+        buffers.push(lenBuffer);
+        buffers.push(fileBuffer);
+
+        first = false;
+    });
+
+    return Buffer.concat(buffers);
+};
+
 const findShaderInternalReplacements = allShaderCode => {
     const externals = _.flatten([
         _.uniq(allShaderCode.match(/v_[a-zA-Z0-9_]+/g)),
@@ -155,20 +177,6 @@ const findSharedFunctionReplacements = sharedCode => {
     return _.zip(
         cashGlobals.map(x => new RegExp('\\'+x, 'g')),
         shortGlobals
-    );
-};
-
-const findExternalFileReplacementsAndRenameFiles = () => {
-    const files = shell.ls('build');
-    const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
-
-    files.forEach((x, i) => {
-        shell.mv('build/'+x, 'build/'+alphabet[i]);
-    });
-
-    return _.zip(
-        files.map(x => new RegExp(x.replace(/\./g, '\\.'), 'g')),
-        alphabet.slice(0, files.length)
     );
 };
 
@@ -316,15 +324,18 @@ const processFile = (replacements, file, code) => {
     return uglifyResult.code;
 };
 
-const processHTML = (html, clientJS) =>
-    html.split('\n').map(x => x.trim()).join('').replace('__clientJS', clientJS.replace(/"/g, "'"))
+const processHTML = (html, clientJS, binaryBlobs) =>
+    html.split('\n')
+        .map(x => x.trim())
+        .join('')
+        .replace('__clientJS', clientJS.replace(/"/g, "'"))
+        .replace('__binaryBlobs', binaryBlobs);
 
 const main = () => {
     constants.__DEBUG = !MINIFY;
 
     shell.rm('-rf', './build');
     shell.mkdir('-p', './build');
-    shell.cp('-r', './public/*', './build');
 
     console.log('Packing shaders...');
 
@@ -337,16 +348,18 @@ const main = () => {
 
     const replacements = MINIFY ? _.flatten([
         findShaderInternalReplacements(allShaderCode),
-        findSharedFunctionReplacements(sharedCode),
-        findExternalFileReplacementsAndRenameFiles()
+        findSharedFunctionReplacements(sharedCode)
     ]) : [];
 
     console.log('Packing javascript...');
 
+    const binaryBlobsBuffer = loadBinaryBlobs();
     const finalClientJS = processFile(replacements, 'client.js', clientCode);
     const finalHTML = processHTML(fs.readFileSync(MINIFY ? 'src/index.html' : 'src/index.debug.html', 'utf8'), finalClientJS);
 
-    fs.writeFileSync('./build/index.html', finalHTML);
+    fs.writeFileSync('./build/index.html', binaryBlobsBuffer);
+    fs.appendFileSync('./build/index.html', finalHTML);
+
     fs.writeFileSync('./build/shared.js', processFile(replacements, 'shared.js', sharedCode));
     fs.writeFileSync('./build/server.js', processFile(replacements, 'server.js', serverCode));
 

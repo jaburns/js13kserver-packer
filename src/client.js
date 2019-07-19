@@ -46,6 +46,7 @@ let socket = io()
         aspectRatio = w / h;
     };
 
+C.style.left = C.style.top = 0;
 onresize = resizeFunc;
 resizeFunc();
 
@@ -154,46 +155,6 @@ let render = state => {
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);
     gfx_renderBuffer(copyProg, frameBuffers[nextswap].t);
     swap = nextswap
-    return;
-    gl.disable(gl.DEPTH_TEST);
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer1.f);
-
-    gfx_renderBuffer(pickBloomPassProg, frameBuffer0.t); 
-
-    // Now: 0 -> scene, 1 -> only bloom sources, 2 -> nothing
-
-    for (let i = 0; i < 10; ++i) {
-        gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer2.f);
-
-        gfx_renderBuffer(blurPassProg, frameBuffer1.t, () => {
-            gl.uniform2f(gl.getUniformLocation(blurPassProg, 'u_direction'), 0, 1);
-        });
-
-        gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer1.f);
-
-        gfx_renderBuffer(blurPassProg, frameBuffer2.t, () => {
-            gl.uniform2f(gl.getUniformLocation(blurPassProg, 'u_direction'), 1, 0);
-        });
-    }
-
-    // Now: 0 -> scene, 1 -> blurred bloom, 2 -> nothing
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer2.f);
-
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-    gfx_renderBuffer(composePassProg, frameBuffer0.t, () => {
-        gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, frameBuffer1.t);
-        gl.uniform1i(gl.getUniformLocation(composePassProg, 'u_bloom'), 1);
-    });
-
-    // Now: 0 -> scene, 1 -> blurred bloom, 2 -> composed scene with bloom
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
-    gfx_renderBuffer(fxaaPassProg, frameBuffer2.t);
 };
 
 let update = () => {
@@ -204,7 +165,21 @@ let update = () => {
 
 update();
 
-gfx_loadModel('cube.8').then(x => cubeModel = x);
+fetch('#')
+    .then(response => response.arrayBuffer())
+    .then(x => {
+        let binaryBlobs = [], len, f = arr => {
+            len = arr[0] * 256+arr[1];
+            binaryBlobs.push(arr.slice(2,2+len));
+            if (arr[2+len] == 44)
+                f(arr.slice(3+len));
+        };
+        f(new Uint8Array(x));
+
+    //  with binaryBlobs {
+            cubeModel = gfx_loadBufferObjectsFromModelFile(binaryBlobs[G_CUBE_MODEL_BLOB], 0);
+    //  }
+    });
 
 let exampleSFX=__includeSongData({songData:[{i:[0,255,116,1,0,255,120,0,1,127,4,6,35,0,0,0,0,0,0,2,14,0,10,32,0,0,0,0],p:[1],c:[{n:[140],f:[]}]}],rowLen:5513,patternLen:32,endPattern:0,numChannels:1});
 sbPlay(exampleSFX, x => soundEffect = x);

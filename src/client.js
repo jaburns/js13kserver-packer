@@ -1,9 +1,6 @@
-let gl = C.getContext('webgl');
-//__insertGLOptimize
-
 //gl.getExtension('OES_texture_float');
 //gl.getExtension('OES_texture_float_linear');
-gl.getExtension("WEBGL_depth_texture");
+gl.getExtension('WEBGL_depth_texture');
 
 //__include soundbox-player.inc.js
 //__include shaders.gen.js
@@ -173,4 +170,4 @@ sbPlay(exampleSFX, x => soundEffect = x);
 
 sbPlay(song);
 
-onclick = soundEffect;
+onclick = soundEffect

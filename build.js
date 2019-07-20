@@ -210,58 +210,74 @@ const findHashCollisions = (hashFunc, items) => {
         .filter(x => x !== null);
 };
 
-const mangleGLCalls = {
-    hashAlgo: `
-        let n = k.split('').map(x=>x.charCodeAt(0)).reduce((a,v,j)=>a+v*j*73%1e6),
-            s = String.fromCharCode(97+n%26) + (0|n/26%36).toString(36)`,
+const mangleStringBuildHash = 'for(i=n=0;++i<k.length;)n+=k.charCodeAt(i)*i*247%3e3';
+const mangleStringGetValue = 'String.fromCharCode(97+n%26)+(0|n/26%36).toString(36)';
 
-    firstPass(code) {
-        const webglFuncs = Object.keys(webglDecls).map(x => webglDecls[x] === null ? x : null).filter(x => x !== null);
+const mangleGLCalls_firstPass = code => {
+    const genHash = k => {
+        let i, n;
+        eval(mangleStringBuildHash);
+        return eval(mangleStringGetValue);
+    };
 
-        const genHash = k => eval(this.hashAlgo + ';s');
+    const webglFuncs = Object.keys(webglDecls).map(x => webglDecls[x] === null ? x : null).filter(x => x !== null);
+    const glCalls = _.uniq(code.match(/gl\.[a-zA-Z0-9_]+/g)).map(x => x.substr(3));
+    const allCollisions = findHashCollisions(genHash, webglFuncs.concat(['STENCIL_INDEX','releaseShaderCompiler']));
+    const localCollisions = glCalls.map(x => allCollisions.indexOf(x) >= 0 ? x : null).filter(x => x !== null);
 
-        const glCalls = _.uniq(code.match(/gl\.[a-zA-Z0-9_]+/g)).map(x => x.substr(3));
-        const allCollisions = findHashCollisions(genHash, webglFuncs.concat(['STENCIL_INDEX','releaseShaderCompiler']));
-        const localCollisions = glCalls.map(x => allCollisions.indexOf(x) >= 0 ? x : null).filter(x => x !== null);
-
+    if (localCollisions.length > 0) {
+        console.log('');
+        console.log('WARNING: The source is using one or more WebGL calls which collide in the mangler:');
+        console.log(localCollisions);
+        console.log('The following identifiers are currently not mangled uniquely:');
         console.log(allCollisions);
-
-        if (localCollisions.length > 0) {
-            console.log('The source is using one or more WebGL calls which collide in the mangler:');
-            console.log(localCollisions); console.log('\nThe following identifiers are currently not mangled uniquely:');
-            console.log(allCollisions);
-            process.exit(1);
-        }
-
-        code = replaceGLConstants(code);
-
-        glCalls.forEach(func => {
-            code = code.replace(new RegExp(`gl\\.${func}([^a-zA-Z0-9])`, 'g'), `${genHash(func)}$1`);
-        });
-
-        return code;
-    },
-
-    secondPass(code) {
-        const minHashAlgo = this.hashAlgo.replace(/[ \t\r\n]*/g, '').replace(/^let/, 'let ');
-        return `let k,g=C.getContext\`webgl\`;for(k in g){${minHashAlgo};g[s]=g[k];}with(g){${code}}`;
+        console.log('');
     }
+
+    code = replaceGLConstants(code);
+
+    glCalls.forEach(func => {
+        code = code.replace(new RegExp(`gl\\.${func}([^a-zA-Z0-9])`, 'g'), `${genHash(func)}$1`);
+    });
+
+    glCalls.forEach(func => {
+        code = code.replace(new RegExp(`gl\\.${func}([^a-zA-Z0-9])`, 'g'), `${func}$1`);
+    });
+
+    return code;
+};
+
+const mangleGLCalls_secondPass = code => {
+    const header = `
+        let k,i,n,g=C.getContext\`webgl\`;
+        for (k in g) {
+            ${mangleStringBuildHash};
+            g[ isNaN(g[k]) && ${mangleStringGetValue} ] = g[k]
+        }`
+        .replace(/[ \t\r\n]*/g, '')
+        .replace(/let/g, 'let ')
+        .replace('king', 'k in g');
+
+    return `${header}with(g){${code}}`;
 }
 
 const processFile = (replacements, file, code) => {
+    replacements.forEach(([from, to]) => code = code.replace(from, to));
+
     if (!MINIFY) {
         if (file === 'shared.js') {
             for (let k in constants) {
                 code = `let ${k} = ${constants[k]};\n` + code;
             }
         }
+        if (file === 'client.js') {
+            code = 'let gl = C.getContext`webgl`;\n' + code;
+        }
         return convertSongDataFormat(code);
     }
 
-    replacements.forEach(([from, to]) => code = code.replace(from, to));
-
     if (file === 'client.js') {
-        code = convertSongDataFormat(mangleGLCalls.firstPass(code));
+        code = convertSongDataFormat(mangleGLCalls_firstPass(code));
     }
 
     const uglifyResult = uglify(code, {
@@ -293,7 +309,7 @@ const processFile = (replacements, file, code) => {
     }
 
     if (file === 'client.js') {
-        return mangleGLCalls.secondPass(uglifyResult.code);
+        return mangleGLCalls_secondPass(uglifyResult.code);
     }
 
     return uglifyResult.code;
@@ -321,11 +337,15 @@ const main = () => {
     const sharedCode = replaceIncludeDirectivesWithInlinedFiles(fs.readFileSync('./src/shared.js', 'utf8'));
     const serverCode = replaceIncludeDirectivesWithInlinedFiles(fs.readFileSync('./src/server.js', 'utf8'));
 
-    const replacements = MINIFY ? _.flatten([
+    const blobsReplacement = createBinaryBlobsReplacement();
+
+    const replacements = _.flatten(MINIFY ? [
         findShaderInternalReplacements(allShaderCode),
         findSharedFunctionReplacements(sharedCode),
-        createBinaryBlobsReplacement()
-    ]) : [];
+        blobsReplacement
+    ] : [
+        blobsReplacement
+    ]);
 
     console.log('Packing javascript...');
 

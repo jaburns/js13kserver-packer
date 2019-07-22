@@ -350,10 +350,11 @@ const main = () => {
     console.log('Packing javascript...');
 
     const finalClientJS = processFile(replacements, 'client.js', clientCode);
+    const finalSharedJS = processFile(replacements, 'shared.js', sharedCode);
     const finalHTML = processHTML(fs.readFileSync(MINIFY ? 'src/index.html' : 'src/index.debug.html', 'utf8'), finalClientJS);
 
     fs.writeFileSync('./build/index.html', finalHTML);
-    fs.writeFileSync('./build/shared.js', processFile(replacements, 'shared.js', sharedCode));
+    if (finalSharedJS.length > 0) fs.writeFileSync('./build/shared.js', finalSharedJS);
     fs.writeFileSync('./build/server.js', processFile(replacements, 'server.js', serverCode));
 
     if (!MINIFY) {

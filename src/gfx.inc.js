@@ -168,7 +168,7 @@ let gfx_createFrameBufferTexture = () => {
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 
             gl.bindTexture(gl.TEXTURE_2D, depthTexture);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, width, height, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_SHORT, null);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, width, height, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
         }
     };
 
@@ -194,7 +194,7 @@ let gfx_createFrameBufferTexture = () => {
 
 let gfx_createCubeMap = () =>{
 
-    let shader = gfx_compileProgram(fullQuad_vert,curlBox_frag);
+    let shader = gfx_compileProgram(fullQuad_vert,genSkybox_frag);
     let s = 1024;
 
     let framebuffer = gl.createFramebuffer();
@@ -208,13 +208,67 @@ let gfx_createCubeMap = () =>{
     for(var i=0; i<6;i++){
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_CUBE_MAP_POSITIVE_X+i, cube, 0);
         gl.viewport(0,0,s,s);
+        v = -~~(i%2*2-1);
+        p = ~~(i/2);
+        let xpos = [(p==0)*v,(p==1)*v,(p==2)*v];
+        let ypos = [p==1,p!=1,0];
+        let zpos = vec3_cross(xpos,ypos);
+        let rotation = xpos.concat(ypos).concat(zpos);
+        if(p==1){
+            rotation = ypos.concat(zpos).concat(xpos);
+        }
+
         gfx_renderBuffer(shader,null,()=>{
-            v = -~~(i%2*2-1);
-            p = ~~(i/2);
-            gl.uniform3f(gl.getUniformLocation(shader, 'u_dir'), (p==0)*v,(p==1)*v,(p==2)*v);
+
+            gl.uniformMatrix3fv(gl.getUniformLocation(shader, 'u_rot'), false,rotation);
+
         });
     }
     gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
     gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    return cube;
+}
+
+let gfx_createMotionCubeMap = () =>{
+
+    let shader = gfx_compileProgram(fullQuad_vert,curlBox_frag);
+    let s = 1024;
+
+    
+    let cube = [];
+    let FRAMES = 16;
+    for(var f=0; f<FRAMES; f++){
+        let framebuffer = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+    
+    cube[f] = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube[f]);
+    for(var i=0; i<6; i++){
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X+i, 0, gl.RGBA, s, s, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    }
+    for(var i=0; i<6;i++){
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_CUBE_MAP_POSITIVE_X+i, cube[f], 0);
+        gl.viewport(0,0,s,s);
+        v = -~~(i%2*2-1);
+        p = ~~(i/2);
+        let xpos = [(p==0)*v,(p==1)*v,(p==2)*v];
+        let ypos = [p==1,p!=1,0];
+        let zpos = vec3_cross(xpos,ypos);
+        let rotation = xpos.concat(ypos).concat(zpos);
+        if(p==1){
+            rotation = ypos.concat(zpos).concat(xpos);
+        }
+
+        gfx_renderBuffer(shader,null,()=>{
+
+            gl.uniformMatrix3fv(gl.getUniformLocation(shader, 'u_rot'), false,rotation);
+            console.log(f/FRAMES);
+            gl.uniform1f(gl.getUniformLocation(shader, 'u_slice'),f/FRAMES);
+
+        });
+    }
+    gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    }
     return cube;
 }

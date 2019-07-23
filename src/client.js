@@ -22,13 +22,15 @@ let socket = io()
   , blurPassProg = gfx_compileProgram(fullQuad_vert, blurPass_frag)
   , pickBloomPassProg = gfx_compileProgram(fullQuad_vert, pickBloomPass_frag)
   , depthPass = gfx_compileProgram(fullQuad_vert,renderDepth_frag)
-  , reprojectProg = gfx_compileProgram(fullQuad_vert,reproject_frag)
+  , reprojectProg = gfx_compileProgram(reproject_vert,reproject_frag)
   , copyProg = gfx_compileProgram(fullQuad_vert,copy_frag)
   , composePassProg = gfx_compileProgram(fullQuad_vert, composePass_frag)
   , fxaaPassProg = gfx_compileProgram(fullQuad_vert, fxaaPass_frag)
   , frameBuffers = [gfx_createFrameBufferTexture(),gfx_createFrameBufferTexture(),gfx_createFrameBufferTexture()]
   , swap = 0
+  , frame = 0
   , cubeTexture = gfx_createCubeMap()
+  , motionCubeTexture = gfx_createMotionCubeMap()
   , cubeModel
   , aspectRatio
   , soundEffect
@@ -150,7 +152,30 @@ let render = state => {
         gl.activeTexture(gl.TEXTURE2);
         gl.bindTexture(gl.TEXTURE_2D, frameBuffers[2].d);
         gl.uniform1i(gl.getUniformLocation(reprojectProg, 'u_depth'), 2);
+
+        gl.uniformMatrix4fv(gl.getUniformLocation(reprojectProg, 'u_inv_vp'), false, mat4_invert(projection));
+
+        let FRAMES = 16;
+        let subFrames=3;
+        let f = ~~(frame/subFrames) % (FRAMES * 2 - 1);
+        gl.activeTexture(gl.TEXTURE3);
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, motionCubeTexture[Math.abs(f-(FRAMES-1))]);
+        gl.uniform1i(gl.getUniformLocation(reprojectProg, "u_cube1"), 3);
+
+        frame = (frame + 1);
+
+        f = ~~(frame / subFrames) % (FRAMES * 2 - 1);
+        gl.activeTexture(gl.TEXTURE4);
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, motionCubeTexture[Math.abs(f-(FRAMES-1))]);
+        gl.uniform1i(gl.getUniformLocation(reprojectProg, "u_cube2"), 4);
+
+        gl.uniform1f(gl.getUniformLocation(reprojectProg, "u_interpolate"),false, (frame % subFrames)/subFrames);
+
+
+
+        
     });
+
 
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);
     gfx_renderBuffer(copyProg, frameBuffers[nextswap].t);

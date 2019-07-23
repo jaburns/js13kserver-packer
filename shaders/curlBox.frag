@@ -130,9 +130,15 @@ vec2 curl2d(vec4 p)
 }
 
 varying vec2 v_uv;
-uniform vec3 u_dir;
+uniform mat3 u_rot;
+uniform float u_slice;
 
 void main()
 {
-    gl_FragColor = vec4(u_dir*0.5+0.5,1);
+    float _Slice = u_slice;
+  	float t = 0.1;
+    gl_FragColor = vec4(0);
+    vec3 dir = u_rot*vec3(v_uv*2.-1.,1);
+    vec3 ray = dir/length(dir);
+		gl_FragColor.rg = curl2d(vec4(ray * 100., _Slice * 30.*t))*0.4+curl2d(vec4(ray * 30., _Slice * 10. * t))*0.6+curl2d(vec4(ray * 10., _Slice*5. * t)) + curl2d(vec4(ray * 5., _Slice*3. * t)) + curl2d(vec4(ray, _Slice*0.5*t));
 }

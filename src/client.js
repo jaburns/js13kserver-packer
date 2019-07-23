@@ -1,5 +1,5 @@
-//gl.getExtension('OES_texture_float');
-//gl.getExtension('OES_texture_float_linear');
+gl.getExtension('OES_texture_float');
+gl.getExtension('OES_texture_float_linear');
 gl.getExtension('WEBGL_depth_texture');
 
 //__include soundbox-player.inc.js

@@ -50,7 +50,7 @@ const replaceIncludeSongCallWithConvertedSong = originalSongData =>
 const convertSongDataFormat = code => {
     const funcName = '__includeSongData(';
 
-    while (1) {
+    for (;;) {
         const funcLoc = code.indexOf(funcName);
         if (funcLoc < 0) return code;
 
@@ -59,8 +59,6 @@ const convertSongDataFormat = code => {
             + replaceIncludeSongCallWithConvertedSong(code.substr(funcLoc + funcName.length, endLoc - funcLoc - funcName.length))
             + code.substr(endLoc + 1);
     }
-
-    return code;
 };
 
 const findShaderIncludes = code => code
@@ -130,6 +128,16 @@ const buildShaderIncludeFile = () => {
     return fileContents;
 };
 
+const createBinaryBlobsReplacement = () => {
+    const blobArray = "['" + 
+        shell.find('./blobs/*')
+            .map(x => fs.readFileSync(x).toString('base64'))
+            .join("','") 
+        + "']";
+
+    return [['__binaryBlobs', blobArray + '.map(x=>Uint8Array.from(atob(x),x=>x.charCodeAt(0)))']];
+};
+
 const findShaderInternalReplacements = allShaderCode => {
     const externals = _.flatten([
         _.uniq(allShaderCode.match(/v_[a-zA-Z0-9_]+/g)),
@@ -155,20 +163,6 @@ const findSharedFunctionReplacements = sharedCode => {
     return _.zip(
         cashGlobals.map(x => new RegExp('\\'+x, 'g')),
         shortGlobals
-    );
-};
-
-const findExternalFileReplacementsAndRenameFiles = () => {
-    const files = shell.ls('build');
-    const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
-
-    files.forEach((x, i) => {
-        shell.mv('build/'+x, 'build/'+alphabet[i]);
-    });
-
-    return _.zip(
-        files.map(x => new RegExp(x.replace(/\./g, '\\.'), 'g')),
-        alphabet.slice(0, files.length)
     );
 };
 
@@ -216,73 +210,74 @@ const findHashCollisions = (hashFunc, items) => {
         .filter(x => x !== null);
 };
 
-const mangleGLCalls_hash = code => {
+const mangleStringBuildHash = 'for(i=n=0;++i<k.length;)n+=k.charCodeAt(i)*i*247%3e3';
+const mangleStringGetValue = 'String.fromCharCode(97+n%26)+(0|n/26%36).toString(36)';
+
+const mangleGLCalls_firstPass = code => {
+    const genHash = k => {
+        let i, n;
+        eval(mangleStringBuildHash);
+        return eval(mangleStringGetValue);
+    };
+
     const webglFuncs = Object.keys(webglDecls).map(x => webglDecls[x] === null ? x : null).filter(x => x !== null);
-
-    const hashAlgo = `
-        let n = k.split('').map(x=>x.charCodeAt(0)).reduce((a,v,j)=>a+v*j*73%1e6),
-            s = String.fromCharCode(97+n%26) + (0|n/26%36).toString(36);`;
-
-    const genHash = k => eval(hashAlgo + ';s');
-
     const glCalls = _.uniq(code.match(/gl\.[a-zA-Z0-9_]+/g)).map(x => x.substr(3));
     const allCollisions = findHashCollisions(genHash, webglFuncs.concat(['STENCIL_INDEX','releaseShaderCompiler']));
     const localCollisions = glCalls.map(x => allCollisions.indexOf(x) >= 0 ? x : null).filter(x => x !== null);
 
     if (localCollisions.length > 0) {
-        console.log('The source is using one or more WebGL calls which collide in the mangler:');
-        console.log(localCollisions); console.log('\nThe following identifiers are currently not mangled uniquely:');
+        console.log('');
+        console.log('WARNING: The source is using one or more WebGL calls which collide in the mangler:');
+        console.log(localCollisions);
+        console.log('The following identifiers are currently not mangled uniquely:');
         console.log(allCollisions);
-        process.exit(1);
+        console.log('');
     }
 
-    code = code.replace('//__insertGLOptimize', `for (let k in gl) { ${hashAlgo}; gl[s] = gl[k]; }`);
-
     code = replaceGLConstants(code);
 
     glCalls.forEach(func => {
-        code = code.replace(new RegExp(`gl\\.${func}([^a-zA-Z0-9])`, 'g'), `gl.${genHash(func)}$1`);
+        code = code.replace(new RegExp(`gl\\.${func}([^a-zA-Z0-9])`, 'g'), `${genHash(func)}$1`);
     });
 
-    return code;
-}
-
-const mangleGLCalls_indices = code => {
-    code = code.replace('//__insertGLOptimize', `
-        let webglFuncs=[],webglFunc;
-        for(webglFunc in gl)if(['STENCIL_INDEX','releaseShaderCompiler'].indexOf(webglFunc)<0)webglFuncs.push(webglFunc);
-        for(webglFunc in gl)gl[webglFuncs.sort().indexOf(webglFunc)]=gl[webglFunc];`);
-
-    code = replaceGLConstants(code);
-
-    const genHash = k =>
-        Object.keys(webglDecls).sort().indexOf(k);
-
-    const glCalls = _.uniq(code.match(/gl\.[a-zA-Z0-9_]+/g)).map(x => x.substr(3));
-
     glCalls.forEach(func => {
-        code = code.replace(new RegExp(`gl\\.${func}([^a-zA-Z0-9])`, 'g'), `gl[${genHash(func)}]$1`);
+        code = code.replace(new RegExp(`gl\\.${func}([^a-zA-Z0-9])`, 'g'), `${func}$1`);
     });
 
     return code;
 };
 
-const mangleGLCalls = mangleGLCalls_indices;
+const mangleGLCalls_secondPass = code => {
+    const header = `
+        let k,i,n,g=C.getContext\`webgl\`;
+        for (k in g) {
+            ${mangleStringBuildHash};
+            g[ isNaN(g[k]) && ${mangleStringGetValue} ] = g[k]
+        }`
+        .replace(/[ \t\r\n]*/g, '')
+        .replace(/let/g, 'let ')
+        .replace('king', 'k in g');
+
+    return `${header}with(g){${code}}`;
+}
 
 const processFile = (replacements, file, code) => {
+    replacements.forEach(([from, to]) => code = code.replace(from, to));
+
     if (!MINIFY) {
         if (file === 'shared.js') {
             for (let k in constants) {
                 code = `let ${k} = ${constants[k]};\n` + code;
             }
         }
+        if (file === 'client.js') {
+            code = 'let gl = C.getContext`webgl`;\n' + code;
+        }
         return convertSongDataFormat(code);
     }
 
-    replacements.forEach(([from, to]) => code = code.replace(from, to));
-
     if (file === 'client.js') {
-        code = convertSongDataFormat(mangleGLCalls(code));
+        code = convertSongDataFormat(mangleGLCalls_firstPass(code));
     }
 
     const uglifyResult = uglify(code, {
@@ -313,18 +308,25 @@ const processFile = (replacements, file, code) => {
         process.exit(1);
     }
 
+    if (file === 'client.js') {
+        return mangleGLCalls_secondPass(uglifyResult.code);
+    }
+
     return uglifyResult.code;
 };
 
-const processHTML = (html, clientJS) =>
-    html.split('\n').map(x => x.trim()).join('').replace('__clientJS', clientJS.replace(/"/g, "'"))
+const processHTML = (html, clientJS, binaryBlobs) =>
+    html.split('\n')
+        .map(x => x.trim())
+        .join('')
+        .replace('__clientJS', clientJS.replace(/"/g, "'"))
+        .replace('__binaryBlobs', binaryBlobs);
 
 const main = () => {
     constants.__DEBUG = !MINIFY;
 
     shell.rm('-rf', './build');
     shell.mkdir('-p', './build');
-    shell.cp('-r', './public/*', './build');
 
     console.log('Packing shaders...');
 
@@ -335,19 +337,24 @@ const main = () => {
     const sharedCode = replaceIncludeDirectivesWithInlinedFiles(fs.readFileSync('./src/shared.js', 'utf8'));
     const serverCode = replaceIncludeDirectivesWithInlinedFiles(fs.readFileSync('./src/server.js', 'utf8'));
 
-    const replacements = MINIFY ? _.flatten([
+    const blobsReplacement = createBinaryBlobsReplacement();
+
+    const replacements = _.flatten(MINIFY ? [
         findShaderInternalReplacements(allShaderCode),
         findSharedFunctionReplacements(sharedCode),
-        findExternalFileReplacementsAndRenameFiles()
-    ]) : [];
+        blobsReplacement
+    ] : [
+        blobsReplacement
+    ]);
 
     console.log('Packing javascript...');
 
     const finalClientJS = processFile(replacements, 'client.js', clientCode);
+    const finalSharedJS = processFile(replacements, 'shared.js', sharedCode);
     const finalHTML = processHTML(fs.readFileSync(MINIFY ? 'src/index.html' : 'src/index.debug.html', 'utf8'), finalClientJS);
 
     fs.writeFileSync('./build/index.html', finalHTML);
-    fs.writeFileSync('./build/shared.js', processFile(replacements, 'shared.js', sharedCode));
+    if (finalSharedJS.length > 0) fs.writeFileSync('./build/shared.js', finalSharedJS);
     fs.writeFileSync('./build/server.js', processFile(replacements, 'server.js', serverCode));
 
     if (!MINIFY) {

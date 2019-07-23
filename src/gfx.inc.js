@@ -52,8 +52,7 @@ let gfx_flatShadeAndloadBufferObjects = (verts, tris) => {
     );
 };
 
-let gfx_loadBufferObjectsFromModelFile = (arrayBuffer, mode16) => {
-    let bytes = new Uint8Array(arrayBuffer);
+let gfx_loadBufferObjectsFromModelFile = (bytes, mode16) => {
     let scaleX = bytes[0] / 256 * 8;
     let scaleY = bytes[1] / 256 * 8;
     let scaleZ = bytes[2] / 256 * 8;
@@ -75,11 +74,6 @@ let gfx_loadBufferObjectsFromModelFile = (arrayBuffer, mode16) => {
 
     return gfx_flatShadeAndloadBufferObjects(new Float32Array(verts), tris);
 };
-
-let gfx_loadModel = s =>
-    fetch(s)
-        .then(response => response.arrayBuffer())
-        .then(buffer => gfx_loadBufferObjectsFromModelFile(buffer, s.endsWith('16')));
 
 if (__DEBUG) {
     var showHTMLShaderError = (kind, log, code) => {

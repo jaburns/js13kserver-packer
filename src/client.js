@@ -167,7 +167,8 @@ let render = state => {
         gl.bindTexture(gl.TEXTURE_CUBE_MAP, motionCubeTexture[Math.abs(f-(FRAMES-1))]);
         gl.uniform1i(gl.getUniformLocation(reprojectProg, "u_cube2"), 4);
 
-        gl.uniform1f(gl.getUniformLocation(reprojectProg, "u_interpolate"),false, (frame % subFrames)/subFrames);
+        gl.uniform1f(gl.getUniformLocation(reprojectProg, "u_interpolate"), (frame % subFrames)/subFrames);
+        gl.uniform1f(gl.getUniformLocation(reprojectProg, "u_aspect"), aspectRatio);
 
 
 
